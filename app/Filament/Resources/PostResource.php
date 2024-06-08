@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Log;
 use App\Filament\Resources\Collection;
 use Filament\Tables\Actions\Action;
 use Illuminate\Support\HtmlString;
+use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class PostResource extends Resource
 {
@@ -47,15 +48,14 @@ class PostResource extends Resource
 
             ->schema([
                 Forms\Components\TextInput::make('title')->label('Título'),
-                 Forms\Components\TextInput::make('logoPath')->label('logoPath'),
+
 
                 Forms\Components\FileUpload::make('logoPath')
                     ->label('Thumbnail')
                     ->directory('lagamar/atrativos/logo')
                     ->storeFileNamesIn('imagem')
-                    ->imageEditor()
-                    ->imageEditorViewportWidth('640')
-                    ->imageEditorViewportHeight('640'),
+                    ->preserveFilenames()
+                    ->default('http://127.0.0.1:8083/storage/lagamar/atrativos/logo/171727823918216613_1879692352285093_1983905073372761744_o.jpeg'),
 
 
                 Forms\Components\TextInput::make('location')->label('Localização'),
@@ -94,11 +94,6 @@ class PostResource extends Resource
 
     public static function table(Table $table): Table
     {
-        $information = Information::limit(1)
-            ->where('id', 27)
-            ->get()->toArray();
-
-       // dd($information);
 
         return $table
 
@@ -106,6 +101,16 @@ class PostResource extends Resource
                 Tables\Columns\TextColumn::make('id')->label('Id')->sortable(),
                 Tables\Columns\ImageColumn::make('full_url')->label('Thumbnail')->ring(5)->sortable(),
                 Tables\Columns\TextColumn::make('title')->label('Título')->sortable(),
+                Tables\Columns\TextColumn::make('atrativoSubs.subCategory.nome_subcategory')->label('Subcategorias')
+                    ->sortable()
+                    ->formatStateUsing(function ($record) {
+                        $subcategories = $record->atrativoSubs->map(function ($atrativoSub) {
+                            return $atrativoSub->subCategory->nome_subcategory;
+                        })->implode('<br>');
+
+                        return new HtmlString(nl2br($subcategories));
+                    }),
+
                 Tables\Columns\TextColumn::make('atrativoSubs.subCategory.nome_subcategory')->label('Subcategorias')
                     ->sortable()
                     ->formatStateUsing(function ($record) {

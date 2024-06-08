@@ -11,7 +11,7 @@ class CreatePost extends CreateRecord
 {
     protected static string $resource = PostResource::class;
 
-    protected static ?string $title = 'Novo cadastro turístico';
+    protected static ?string $title = 'Novo Atrativo';
 
     protected static ?string $navigationLabel = 'Custom Navigation Label';
 
