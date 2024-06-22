@@ -26,6 +26,14 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('name'),
                 Forms\Components\TextInput::make('email'),
                 Forms\Components\TextInput::make('password')
+                    ->dehydrateStateUsing(static fn($state) => bcrypt($state)),
+
+                Forms\Components\Select::make('role')
+                    ->options([
+                        'user' => 'User',
+                        'admin' => 'Admin',
+                    ])
+
             ]);
     }
 
@@ -33,20 +41,13 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('id'),
-                Tables\Columns\TextColumn::make('name'),
-                Tables\Columns\TextColumn::make('email'),
-            ])
-            ->filters([
-                //
+                Tables\Columns\TextColumn::make('name')->label('Name'),
+                Tables\Columns\TextColumn::make('email')->label('Email'),
+                Tables\Columns\TextColumn::make('role')->label('Role'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                Tables\Actions\DeleteAction::make(),
             ]);
     }
 
@@ -64,5 +65,10 @@ class UserResource extends Resource
             'create' => Pages\CreateUser::route('/create'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin();
     }
 }

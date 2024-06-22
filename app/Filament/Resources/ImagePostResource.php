@@ -38,14 +38,15 @@ class ImagePostResource extends Resource
                     ->multiple()
                     ->label('Thumbnail')
                     ->directory('lagamar/atrativos/imagens')
-                    ->storeFileNamesIn('imagem'),
+                    ->storeFileNamesIn('imagem')
+                    ->imageEditor(),
 
                 Forms\Components\Select::make('post')
                     ->label('Post')
                     ->searchable()
                     ->options(function () {
                         return Information::pluck('title', 'id')->toArray();
-                    })
+                    })->required()
             ]);
 
 
@@ -57,6 +58,7 @@ class ImagePostResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('id')->label('Id')->sortable(),
+                Tables\Columns\TextColumn::make('post.title')->label('Atrativo')->sortable(),
                 Tables\Columns\ImageColumn::make('full_url_img')->label('Galeria')->sortable(),
                 Tables\Columns\TextColumn::make('created_at')->label('Publicado em:')->sortable(),
             ])

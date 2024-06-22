@@ -103,4 +103,9 @@ class SubCategoriResource extends Resource
             'edit' => Pages\EditSubCategori::route('/{record}/edit'),
         ];
     }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin();
+    }
 }

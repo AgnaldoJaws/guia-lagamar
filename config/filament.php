@@ -29,7 +29,7 @@ return [
                 'name' => 'Dashboard', // Nome do novo item de menu
                 'icon' => 'heroicon-o-home', // Ícone do novo item de menu (consulte https://heroicons.com/ para os nomes dos ícones)
             ],
-            // Adicione outros itens de menu conforme necessário
+
         ],
 
     ],

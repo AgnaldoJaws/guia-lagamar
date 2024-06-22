@@ -20,6 +20,7 @@ class CreatePost extends CreateRecord
     public function afterCreate()
     {
         $formData = $this->form->getState();
+
         $subCategories = $formData['subcategory'];
 
         foreach ($subCategories as $item)

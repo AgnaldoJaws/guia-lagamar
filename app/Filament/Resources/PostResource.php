@@ -16,6 +16,7 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Filament\Forms\Get;
 use Filament\Forms\Components\Select;
@@ -39,8 +40,6 @@ class PostResource extends Resource
 
     public static function form(Form $form): Form
     {
-
-
         $cities = City::pluck('cityName', 'id')->toArray();
 
 
@@ -49,13 +48,13 @@ class PostResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('title')->label('Título'),
 
+                Forms\Components\TextInput::make('logoPath')->hidden(),
 
-                Forms\Components\FileUpload::make('logoPath')
+                Forms\Components\FileUpload::make('file')
                     ->label('Thumbnail')
                     ->directory('lagamar/atrativos/logo')
                     ->storeFileNamesIn('imagem')
-                    ->preserveFilenames()
-                    ->default('http://127.0.0.1:8083/storage/lagamar/atrativos/logo/171727823918216613_1879692352285093_1983905073372761744_o.jpeg'),
+                    ->imageEditor(),
 
 
                 Forms\Components\TextInput::make('location')->label('Localização'),
@@ -92,27 +91,28 @@ class PostResource extends Resource
             ]);
     }
 
+
     public static function table(Table $table): Table
     {
+        $cities = City::pluck('cityName', 'id')->toArray();
+
 
         return $table
 
             ->columns([
-                Tables\Columns\TextColumn::make('id')->label('Id')->sortable(),
-                Tables\Columns\ImageColumn::make('full_url')->label('Thumbnail')->ring(5)->sortable(),
+                Tables\Columns\ImageColumn::make('full_url')->label('Thumbnail')->ring(5),
+                Tables\Columns\TextColumn::make('author.name')->label('Autor')->sortable(),
                 Tables\Columns\TextColumn::make('title')->label('Título')->sortable(),
-                Tables\Columns\TextColumn::make('atrativoSubs.subCategory.nome_subcategory')->label('Subcategorias')
-                    ->sortable()
-                    ->formatStateUsing(function ($record) {
-                        $subcategories = $record->atrativoSubs->map(function ($atrativoSub) {
-                            return $atrativoSub->subCategory->nome_subcategory;
-                        })->implode('<br>');
 
-                        return new HtmlString(nl2br($subcategories));
+                Tables\Columns\TextColumn::make('atrativoSubs.subCategory.category.categoryName')->label('Categorias')
+                    ->formatStateUsing(function ($record) {
+                        $category = $record->atrativoSubs->map(function ($atrativoSub) {
+                            return $atrativoSub->subCategory->category->categoryName;
+                        })->implode('<br>');
+                        return new HtmlString(nl2br($category));
                     }),
 
                 Tables\Columns\TextColumn::make('atrativoSubs.subCategory.nome_subcategory')->label('Subcategorias')
-                    ->sortable()
                     ->formatStateUsing(function ($record) {
                         $subcategories = $record->atrativoSubs->map(function ($atrativoSub) {
                             return $atrativoSub->subCategory->nome_subcategory;
@@ -125,24 +125,20 @@ class PostResource extends Resource
 
 
             ])
-//            ->filters([
-//                Tables\Filters\SelectFilter::make('id')
-//                    ->label('Filtrar por Subcategoria')
-//                    ->options(function () {
-//                        // Recupera todas as subcategorias únicas dos registros
-//                        $subcategories = AtrativosSubs::with('nome_subcategory')->get()->flatMap(function ($atrativoSub) {
-//                            return $atrativoSub->subCategory->pluck('id');
-//                        })->unique();
-//
-//                        // Cria as opções do filtro select
-//                        $options = $subcategories->mapWithKeys(function ($subcategory) {
-//                            return [$subcategory => $subcategory];
-//                        });
-//
-//                        return $options;
-//                    })
-//                    ->placeholder('Todas as Subcategorias'),
-//            ])
+            ->filters([
+                Tables\Filters\SelectFilter::make('cities_id')
+                    ->placeholder('Select')
+                    ->label('Cidade')
+                    ->options(function () use ($cities) {
+                        return $cities;
+                    }),
+
+//                Tables\Filters\SelectFilter::make('categoryName')
+//                    ->placeholder('Select')
+//                    ->label('Subcategoria')
+//                    ->options(Category::pluck('categoryName','id')->toArray()),
+
+            ])
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Tables\Actions\DeleteAction::make()
