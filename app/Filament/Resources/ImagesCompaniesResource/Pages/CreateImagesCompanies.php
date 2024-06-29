@@ -1,19 +1,19 @@
 <?php
 
-namespace App\Filament\Resources\ImagePostResource\Pages;
+namespace App\Filament\Resources\ImagesCompaniesResource\Pages;
 
-use App\Filament\Resources\ImagePostResource;
+use App\Filament\Resources\ImagesCompaniesResource;
 use App\Helpers\ImageHelper;
 use App\Models\ImagePost;
+use App\Models\Imagescompany;
 use Filament\Actions;
 use Filament\Resources\Pages\CreateRecord;
-use Illuminate\Http\Request;
 
-class CreateImagePost extends CreateRecord
+class CreateImagesCompanies extends CreateRecord
 {
-    protected static string $resource = ImagePostResource::class;
+    protected static string $resource = ImagesCompaniesResource::class;
 
-    protected static ?string $title = 'Cadastrar Imagens';
+    protected static ?string $title = 'Comercio';
 
     public function beforeCreate()
     {
@@ -29,17 +29,19 @@ class CreateImagePost extends CreateRecord
             ImageHelper::compressImage($source, $destination, 40);
         }
     }
+
     public function afterCreate() {
         $formData = $this->form->getState();
 
         foreach ($formData['imagem'] as $path => $filename){
 
-            $imageObj = new ImagePost();
+            $imageObj = new Imagescompany();
             $imageObj->file = basename($path);
-            $imageObj->informacaos_id = $formData['post'];
+            $imageObj->caption = '';
+            $imageObj->description = '';
+            $imageObj->companies_id = $formData['companie'];
             $imageObj->save();
         }
 
     }
-
 }

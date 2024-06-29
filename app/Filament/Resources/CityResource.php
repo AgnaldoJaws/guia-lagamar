@@ -23,7 +23,7 @@ class CityResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
-    protected static ?string $navigationGroup = 'Portal Web';
+    protected static ?string $navigationGroup = 'Configurações';
 
     public static function form(Form $form): Form
     {
@@ -37,7 +37,6 @@ class CityResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('id'),
                 Tables\Columns\TextColumn::make('cityName')->label('Cidade'),
             ])
             ->filters([

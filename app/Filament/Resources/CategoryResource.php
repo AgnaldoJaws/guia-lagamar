@@ -21,9 +21,9 @@ class CategoryResource extends Resource
 
     protected static ?string $navigationLabel = 'Categoria';
 
-    protected static ?int $navigationSort = 5;
+    protected static ?int $navigationSort = 4;
 
-    protected static ?string $navigationGroup = 'Portal Web';
+    protected static ?string $navigationGroup = 'Configurações';
 
     public static function form(Form $form): Form
     {
@@ -37,7 +37,6 @@ class CategoryResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('id'),
                 Tables\Columns\TextColumn::make('categoryName')->label('Categoria'),
             ])
             ->filters([

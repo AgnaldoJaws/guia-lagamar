@@ -17,7 +17,11 @@ class PlanResource extends Resource
 {
     protected static ?string $model = Plan::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-cog-8-tooth';
+
+    protected static ?string $navigationLabel = 'Planos';
+
+    protected static ?string $navigationGroup = 'Configurações';
 
     public static function form(Form $form): Form
     {
@@ -66,5 +70,10 @@ class PlanResource extends Resource
             'create' => Pages\CreatePlan::route('/create'),
             'edit' => Pages\EditPlan::route('/{record}/edit'),
         ];
+    }
+
+    public static function canViewAny(): bool
+    {
+        return auth()->user()->isAdmin();
     }
 }

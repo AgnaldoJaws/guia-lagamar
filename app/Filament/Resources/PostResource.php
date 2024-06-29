@@ -14,6 +14,7 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -37,7 +38,6 @@ class PostResource extends Resource
 
     protected static ?string $navigationGroup = 'Portal Web';
 
-    protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
@@ -136,6 +136,17 @@ class PostResource extends Resource
                     ->label('Cidade')
                     ->options(function () use ($cities) {
                         return $cities;
+                    }),
+
+                Filter::make('name')
+                    ->form([
+                        Forms\Components\TextInput::make('name')->label('Nome'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['name'],
+                            fn (Builder $query, $name): Builder => $query->where('title', 'like', "%{$name}%")
+                        );
                     }),
 
 //                Tables\Filters\SelectFilter::make('categoryName')

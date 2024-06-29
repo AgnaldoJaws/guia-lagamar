@@ -2,12 +2,11 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\ImagePostResource\Actions\RedirectToImagePostsAction;
-use App\Filament\Resources\ImagePostResource\Pages;
-use App\Filament\Resources\ImagePostResource\RelationManagers;
-use App\Models\Category;
+use App\Filament\Resources\ImagesCompaniesResource\Pages;
+use App\Filament\Resources\ImagesCompaniesResource\RelationManagers;
 use App\Models\Comercio;
-use App\Models\ImagePost;
+use App\Models\ImagesCompanies;
+use App\Models\Imagescompany;
 use App\Models\Information;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -17,65 +16,59 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
-use Illuminate\Http\Request;
 
-class ImagePostResource extends Resource
+class ImagesCompaniesResource extends Resource
 {
-    protected static ?string $model = ImagePost::class;
-
-    protected static ?string $navigationIcon = 'heroicon-m-photo';
-
-    protected static ?string $navigationLabel = 'Atrativos';
+    protected static ?string $model = Imagescompany::class;
 
     protected static ?string $navigationGroup = 'Galeria';
 
+    protected static ?string $navigationLabel = 'Comercio';
+
+    protected static ?string $navigationIcon = 'heroicon-m-photo';
 
     public static function form(Form $form): Form
     {
-
         return $form
             ->schema([
-                Forms\Components\Select::make('post')
-                    ->label('Post')
-                    ->searchable()
-                    ->options(function () {
-                        return Information::pluck('title', 'id')->toArray();
-                    }),
-
                 Forms\Components\FileUpload::make('files')
                     ->multiple()
                     ->label('Thumbnail')
-                    ->directory('lagamar/atrativos/imagens')
+                    ->directory('lagamar/comercio/imagens')
                     ->storeFileNamesIn('imagem')
-                    ->imageEditor()
+                    ->imageEditor(),
+
+                Forms\Components\Select::make('companie')
+                    ->label('Comercio')
+                    ->searchable()
+                    ->options(function () {
+                        return Comercio::pluck('nome_empresa', 'id')->toArray();
+                    }),
+
             ]);
-
-
     }
 
     public static function table(Table $table): Table
     {
-
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('post.title')->label('Atrativo')->sortable(),
-                Tables\Columns\ImageColumn::make('full_url_img')->label('Galeria')->sortable(),
+                Tables\Columns\TextColumn::make('comercio.nome_empresa')->label('Comercio')->sortable(),
+                Tables\Columns\ImageColumn::make('full_url')->label('Galeria')->sortable(),
                 Tables\Columns\TextColumn::make('created_at')->label('Publicado em:')->sortable(),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('informacaos_id')
-                    ->label('Filtrar por Post')
+                Tables\Filters\SelectFilter::make('companies_id')
+                    ->label('Filtrar por Comercio')
                     ->multiple()
                     ->searchable()
                     ->options(function () {
-                        return Information::pluck('title', 'id')->toArray();
-                    })
-            ])
-            ->actions([
-                Tables\Actions\DeleteAction::make(),
+                        return Comercio::pluck('nome_empresa', 'id')->toArray();
+                    }),
 
             ])
-            ->defaultSort('id', 'desc')
+            ->actions([
+                Tables\Actions\EditAction::make(),
+            ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
                     Tables\Actions\DeleteBulkAction::make(),
@@ -93,9 +86,9 @@ class ImagePostResource extends Resource
     public static function getPages(): array
     {
         return [
-            'index' => Pages\ListImagePosts::route('/'),
-            'create' => Pages\CreateImagePost::route('/create'),
-            'edit' => Pages\EditImagePost::route('/{record}/edit'),
+            'index' => Pages\ListImagesCompanies::route('/'),
+            'create' => Pages\CreateImagesCompanies::route('/create'),
+            'edit' => Pages\EditImagesCompanies::route('/{record}/edit'),
         ];
     }
 

@@ -19,6 +19,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\HtmlString;
+use Filament\Tables\Filters\Filter;
 
 class ComercioResource extends Resource
 {
@@ -30,7 +31,6 @@ class ComercioResource extends Resource
 
     protected static ?string $navigationGroup = 'Portal Web';
 
-    protected static ?int $navigationSort = 2;
 
     public static function form(Form $form): Form
     {
@@ -130,7 +130,16 @@ class ComercioResource extends Resource
 
             ])
             ->filters([
-                //
+                Filter::make('name')
+                    ->form([
+                        Forms\Components\TextInput::make('name')->label('Nome'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        return $query->when(
+                            $data['name'],
+                            fn (Builder $query, $name): Builder => $query->where('nome_empresa', 'like', "%{$name}%")
+                        );
+                    }),
             ])
             ->defaultSort('id', 'desc')
             ->actions([

@@ -5,7 +5,7 @@ use App\Http\Controllers\Api\CityController;
 use App\Http\Controllers\Api\PostController;
 
 Route::get('/', function () {
-
+    return redirect()->route('filament.admin.pages.dashboard');
 });
 
 

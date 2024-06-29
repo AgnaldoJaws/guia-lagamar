@@ -118,4 +118,8 @@ class Comercio extends Model
     {
         return $this->belongsToMany(Imagescompany::class,'comercio_subs','comercio_id');
     }
+
+    public function author(){
+        return $this->hasOne(User::class,'id','user_id');
+    }
 }

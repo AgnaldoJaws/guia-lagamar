@@ -24,9 +24,8 @@ class SubCategoriResource extends Resource
 
     protected static ?string $navigationLabel = 'Subcategoria';
 
-    protected static ?string $navigationGroup = 'Portal Web';
+    protected static ?string $navigationGroup = 'Configurações';
 
-    protected static ?int $navigationSort = 5;
 
     public static function form(Form $form): Form
     {
@@ -56,7 +55,6 @@ class SubCategoriResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('id'),
                 Tables\Columns\TextColumn::make('nome_subcategory')->label('Nome'),
                 Tables\Columns\TextColumn::make('category.categoryName')->label('Categoria'),
                 Tables\Columns\TextColumn::make('city.cityName')->label('Cidade'),
