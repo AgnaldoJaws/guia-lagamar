@@ -21,7 +21,7 @@ class CreatePost extends CreateRecord
     {
         $formData = $this->form->getState();
 
-        $subCategories = $formData['subcategory'];
+        $subCategories = $formData['category_id'];
 
         foreach ($subCategories as $item)
         {

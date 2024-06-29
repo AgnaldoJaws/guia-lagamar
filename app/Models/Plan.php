@@ -13,6 +13,7 @@ class Plan extends Model
         'nome_plano',
         'valor_anual',
         'valor_mensal',
-        'descricao'
+        'descricao',
+
     ];
 }

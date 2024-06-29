@@ -28,6 +28,7 @@ use Livewire\Features\SupportFileUploads\TemporaryUploadedFile;
 
 class PostResource extends Resource
 {
+
     protected static ?string $model = Information::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-book-open';
@@ -42,11 +43,10 @@ class PostResource extends Resource
     {
         $cities = City::pluck('cityName', 'id')->toArray();
 
-
         return $form
 
             ->schema([
-                Forms\Components\TextInput::make('title')->label('Título'),
+                Forms\Components\TextInput::make('title')->label('Título')->required(),
 
                 Forms\Components\TextInput::make('logoPath')->hidden(),
 
@@ -56,10 +56,14 @@ class PostResource extends Resource
                     ->storeFileNamesIn('imagem')
                     ->imageEditor(),
 
+                Forms\Components\TextInput::make('imagem')
+                    ->label('Processed Image Path')
+                    ->disabled()
+                    ->visibleOn(['edit', 'view']),
 
-                Forms\Components\TextInput::make('location')->label('Localização'),
-                Forms\Components\TextInput::make('lat')->label('Latitude'),
-                Forms\Components\TextInput::make('long')->label('Longitude'),
+                Forms\Components\TextInput::make('location')->label('Localização')->required(),
+                Forms\Components\TextInput::make('lat')->label('Latitude')->required(),
+                Forms\Components\TextInput::make('long')->label('Longitude')->required(),
 
                 Forms\Components\Select::make('cities_id')
                     ->placeholder('Select')
@@ -67,13 +71,14 @@ class PostResource extends Resource
                     ->options(function () use ($cities) {
                         return $cities;
                     })
-                    ->live(),
+                    ->live()
+                    ->required(),
 
 
-                Select::make('subcategory')
+                Select::make('category_id')
                     ->placeholder('Select')
                     ->multiple()
-                    ->label('Categoria')
+                    ->label('Subcategoria')
                     ->options(fn (Get $get): array => SubCategory::query()
                         ->where('cities_id', $get('cities_id'))
                         ->pluck('nome_subcategory', 'id')->toArray()),

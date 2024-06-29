@@ -25,7 +25,7 @@ class Information extends Model
         'long',
         'forma_acesso',
         'cities_id',
-        'subCategory_id',
+        'category_id',
         'file'
     ];
 
@@ -42,12 +42,33 @@ class Information extends Model
 
         static::saving(function ($model){
             $formData = $model->getAttributes();
+
             if(!empty(basename($formData['file']))){
                 $model->logoPath = basename($formData['file']);
                 $model->file = 1;
             }
 
+            $model->category_id = null;
+
+            $subCategories = $formData['category_id'];
+
+            if($subCategories && isset($formData['id'])){
+
+                $model->atrativoSubs()->delete();
+
+                foreach ($subCategories as $item)
+                {
+                    $atrativoSub = new AtrativosSubs();
+                    $atrativoSub->atrativo_id = $formData['id'];
+                    $atrativoSub->subcat_id = $item;
+                    $atrativoSub->cities_id = $formData['cities_id'];
+                    $atrativoSub->save();
+                }
+            }
+
+
         });
+
         if (!Auth::check() || !Auth::user()->isAdmin()) {
             static::addGlobalScope('user_posts', function (\Illuminate\Database\Eloquent\Builder $builder) {
                 $builder->where('user_id', Auth::id());

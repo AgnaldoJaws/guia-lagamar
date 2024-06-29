@@ -17,4 +17,9 @@ class ComercioSub extends Model
     ];
 
 
+    public function subCategory()
+    {
+        return $this->belongsTo(SubCategory::class, 'subcat_id', 'id');
+    }
+
 }
