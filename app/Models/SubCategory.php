@@ -18,7 +18,7 @@ class SubCategory extends Model
 
     public function getFullUrlAttribute()
     {
-        return url('http://guialagamar.com.br/lagamar/images/subcategory').'/'.$this->imagem;
+        return url('http://guialagamar.com.br/storage/lagamar/images/subcategory').'/'.$this->imagem;
 
     }
 
