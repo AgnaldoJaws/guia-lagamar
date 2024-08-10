@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Services\CacheService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class Information extends Model
 {
@@ -34,6 +37,18 @@ class Information extends Model
     protected static function boot()
     {
         parent::boot();
+
+        static::created(function ($model) {
+            DB::table('cache')->where('key', 'like', '%laravel_cache%')->delete();
+        });
+
+        static::updated(function ($model) {
+            DB::table('cache')->where('key', 'like', '%laravel_cache%')->delete();
+        });
+
+        static::deleted(function ($model) {
+            DB::table('cache')->where('key', 'like', '%laravel_cache%')->delete();
+        });
 
         static::creating(function ($model) {
             $model->logoPath = basename($model->logoPath);
@@ -69,14 +84,15 @@ class Information extends Model
 
         });
 
-        if (!Auth::check() || !Auth::user()->isAdmin()) {
-            static::addGlobalScope('user_posts', function (\Illuminate\Database\Eloquent\Builder $builder) {
-                $builder->where('user_id', Auth::id());
-            });
+        if(Auth::check() && !Str::startsWith(request()->path(), 'api')){
+            if (!Auth::user()->isAdmin()) {
+                static::addGlobalScope('user_posts', function (\Illuminate\Database\Eloquent\Builder $builder) {
+                    $builder->where('user_id', Auth::id());
+                });
+            }
         }
 
     }
-
 
 
     public function getFullUrlAttribute()

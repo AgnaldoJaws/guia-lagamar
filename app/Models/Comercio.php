@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 
 class Comercio extends Model
@@ -38,6 +40,18 @@ class Comercio extends Model
     protected static function boot()
     {
         parent::boot();
+
+        static::created(function ($model) {
+            DB::table('cache')->where('key', 'like', '%laravel_cache%')->delete();
+        });
+
+        static::updated(function ($model) {
+            DB::table('cache')->where('key', 'like', '%laravel_cache%')->delete();
+        });
+
+        static::deleted(function ($model) {
+            DB::table('cache')->where('key', 'like', '%laravel_cache%')->delete();
+        });
 
         static::creating(function ($model) {
 
@@ -74,10 +88,12 @@ class Comercio extends Model
 
         });
 
-        if (!Auth::check() || !Auth::user()->isAdmin()) {
-            static::addGlobalScope('user_posts', function (\Illuminate\Database\Eloquent\Builder $builder) {
-                $builder->where('user_id', Auth::id());
-            });
+        if(Auth::check() && !Str::startsWith(request()->path(), 'api')){
+            if (!Auth::user()->isAdmin()) {
+                static::addGlobalScope('user_posts', function (\Illuminate\Database\Eloquent\Builder $builder) {
+                    $builder->where('user_id', Auth::id());
+                });
+            }
         }
     }
 
