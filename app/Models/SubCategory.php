@@ -37,7 +37,7 @@ class SubCategory extends Model
 
     public function getFullUrlAttribute()
     {
-        return url('http://guialagamar.com.br/storage/lagamar/images/subcategory').'/'.$this->imagem;
+        return url(config('app.url').'/storage/lagamar/images/subcategory').'/'.$this->imagem;
 
     }
 

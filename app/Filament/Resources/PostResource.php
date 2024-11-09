@@ -42,6 +42,7 @@ class PostResource extends Resource
     public static function form(Form $form): Form
     {
         $cities = City::pluck('cityName', 'id')->toArray();
+        $categories = Category::pluck('categoryName', 'id')->toArray();
 
         return $form
 
@@ -66,22 +67,87 @@ class PostResource extends Resource
                 Forms\Components\TextInput::make('long')->label('Longitude')->required(),
 
                 Forms\Components\Select::make('cities_id')
-                    ->placeholder('Select')
+                    ->placeholder('Selecione a Cidade')
                     ->label('Cidade')
-                    ->options(function () use ($cities) {
-                        return $cities;
-                    })
-                    ->live()
+                    ->options($cities)
+                    ->reactive() // Reativo para atualizar as outras opções
                     ->required(),
 
+                Forms\Components\Select::make('category_id')
+                    ->placeholder('Selecione as Categorias')
+                    ->label('Categoria')
+                    ->options($categories)
+                    ->multiple() // Permite múltiplas seleções
+                    ->reactive() // Reativo para atualizar as subcategorias com base na categoria
+                    ->required()
+                    ->afterStateHydrated(function ($set, $get, $state) {
+                        // Pega o ID do registro atual
+                        $recordId = request()->route('record'); // Ou qualquer outro método para pegar o ID
 
-                Select::make('category_id')
-                    ->placeholder('Select')
-                    ->multiple()
+                        // Consultando as subcategorias associadas ao 'atrativo_id'
+                        $defaultSelections = AtrativosSubs::with('subCategory', 'subCategory.category')
+                            ->where('atrativo_id', '=', $recordId)
+                            ->get()
+                            ->toArray();
+
+                        // Mapear o id da categoria que vem dos dados retornados para o valor default
+                        $defaultCategoryIds = array_map(function ($item) {
+                            return $item['sub_category']['category_id'];
+                        }, $defaultSelections);
+
+                        // Garantir que o valor seja sempre um array (mesmo se for um único valor)
+                        if (count($defaultCategoryIds) > 1) {
+                            // Se houver mais de um valor, ele já está em formato de array
+                            $set('category_id', $defaultCategoryIds);
+                        } else {
+                            // Se houver apenas um valor, transformar em array
+                            $set('category_id', $defaultCategoryIds);
+                        }
+                    }),
+
+                Forms\Components\Select::make('subcat_id')
+                    ->placeholder('Selecione as Subcategorias')
                     ->label('Subcategoria')
-                    ->options(fn (Get $get): array => SubCategory::query()
-                        ->where('cities_id', $get('cities_id'))
-                        ->pluck('nome_subcategory', 'id')->toArray()),
+                    ->options(function (Get $get) {
+                        // Pega as seleções de cidade e categoria
+                        $cityId = $get('cities_id');
+                        $categoryId =  (array) $get('category_id'); // Garante que seja sempre um array
+
+                        // Consultando as subcategorias com base na cidade e categoria selecionadas
+                        return SubCategory::query()
+                            ->where('cities_id', $cityId)
+                            ->whereIn('category_id', $categoryId) // Permite múltiplas categorias
+                            ->pluck('nome_subcategory', 'id')
+                            ->toArray();
+                    })
+                    ->multiple() // Permite múltiplas seleções
+                    ->reactive() // Reativo para atualizar automaticamente conforme as seleções
+                    ->required()
+                    ->afterStateHydrated(function ($set, $get, $state) {
+                        // Pega o ID do registro atual
+                        $recordId = request()->route('record'); // Ou qualquer outro método para pegar o ID
+
+                        // Consultando as subcategorias associadas ao 'atrativo_id'
+                        $defaultSelections = AtrativosSubs::with('subCategory', 'subCategory.category')
+                            ->where('atrativo_id', '=', $recordId)
+                            ->get()
+                            ->toArray();
+
+                        // Mapear o id das subcategorias associadas ao registro
+                        $defaultSubCategoryIds = array_map(function ($item) {
+                            return $item['subcat_id'];
+                        }, $defaultSelections);
+
+                        // Garantir que o valor seja sempre um array (mesmo se for um único valor)
+                        if (count($defaultSubCategoryIds) > 1) {
+                            // Se houver mais de um valor, ele já está em formato de array
+                            $set('subcat_id', $defaultSubCategoryIds);
+                        } else {
+                            // Se houver apenas um valor, transformar em array
+                            $set('subcat_id', $defaultSubCategoryIds);
+                        }
+                    }),
+
 
 
                 Forms\Components\Textarea::make('references')->label('Referência'),
@@ -100,7 +166,6 @@ class PostResource extends Resource
     public static function table(Table $table): Table
     {
         $cities = City::pluck('cityName', 'id')->toArray();
-
 
         return $table
 

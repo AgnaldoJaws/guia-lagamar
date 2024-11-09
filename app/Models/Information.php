@@ -29,6 +29,7 @@ class Information extends Model
         'forma_acesso',
         'cities_id',
         'category_id',
+        'subcat_id',
         'file'
     ];
 
@@ -64,8 +65,9 @@ class Information extends Model
             }
 
             $model->category_id = null;
+            $model->subcat_id = null;
 
-            $subCategories = $formData['category_id'];
+            $subCategories = $formData['subcat_id'];
 
             if($subCategories && isset($formData['id'])){
 
