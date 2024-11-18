@@ -24,4 +24,8 @@ Route::group(['middleware' => Cors::class, 'prefix' => 'api'], function(){
 
     Route::get('subByCity/{id}', [PostController::class, 'getSubCategories']);
 
+    Route::get('contentBySub/{id}', [PostController::class, 'getContentBySub']);
+
+    Route::get('contentHome', [PostController::class, 'contentHome']);
+
 });

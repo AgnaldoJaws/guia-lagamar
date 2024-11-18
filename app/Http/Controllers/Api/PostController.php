@@ -26,7 +26,7 @@ class PostController extends Controller {
 
         // Verifica se o resultado está no cache
         $data = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($category, $city) {
-            // Consulta as subcategorias
+            // Consulta as subcategoriasf
             $sub_categories = SubCategory::where('cities_id', $city)
                 ->where('category_id', $category)
                 ->orderBy('nome_subcategory', 'asc')
@@ -231,8 +231,10 @@ class PostController extends Controller {
 
     public function getSubCategories($city)
     {
-
-        $SubCategories = SubCategory::where('cities_id',$city)->get();
+        $categories = [1,3,11];
+        $SubCategories = SubCategory::whereIn('category_id', $categories)
+            ->where('cities_id', $city)
+            ->get();
 
         foreach($SubCategories as $key => $value )
         {
@@ -271,8 +273,38 @@ class PostController extends Controller {
             return $e->getMessage();
         }
 
+    }
 
+    public function getContentBySub($sub_id)
+    {
+        // Define uma chave única para o cache baseada no ID da subcategoria
+        $cacheKey = "content_by_sub_{$sub_id}";
 
+        // Tenta recuperar os dados do cache
+        $atrativos = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($sub_id) {
+            return AtrativosSubs::with('atrativos:id,title')
+                ->where('subcat_id', $sub_id)
+                ->get()
+                ->pluck('atrativos') // Obtém apenas os dados da relação
+                ->flatten()
+                ->map(function ($atrativo) {
+                    return [
+                        'id' => $atrativo['id'],
+                        'title' => $atrativo['title'],
+                    ];
+                })
+                ->toArray();
+        });
+
+        return ['data' => $atrativos];
+    }
+
+    public function contentHome(Request $request){
+        $type = $request->type;
+
+        if($type == 'experience'){
+
+        }
     }
 
 

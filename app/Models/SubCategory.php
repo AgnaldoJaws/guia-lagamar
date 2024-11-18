@@ -16,13 +16,27 @@ class SubCategory extends Model
     protected $fillable = [
         'nome_subcategory',
         'imagem',
+        'category_id',
+        'cities_id'
     ];
 
     protected static function boot()
     {
         parent::boot();
 
+        static::saving(function ($model) {
+
+            foreach ($model->imagem as $filename){
+
+                $imgName = (pathinfo($filename, PATHINFO_BASENAME));
+            }
+            if(!empty($imgName)){
+                $model->imagem = $imgName;
+            }
+
+        });
         static::created(function ($model) {
+
             DB::table('cache')->where('key', 'like', '%laravel_cache%')->delete();
         });
 
@@ -55,4 +69,6 @@ class SubCategory extends Model
     {
         return $this->hasMany(AtrativosSubs::class, 'subcat_id', 'id');
     }
+
+
 }

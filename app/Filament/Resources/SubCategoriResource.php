@@ -42,6 +42,7 @@ class SubCategoriResource extends Resource
                     ->options(function () {
                         return City::pluck('cityName', 'id')->toArray();
                     }),
+
                 Forms\Components\FileUpload::make('imagem')
                     ->label('Thumbnail')
                     ->directory('lagamar/images/subcategory')

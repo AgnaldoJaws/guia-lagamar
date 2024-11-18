@@ -11,4 +11,5 @@ class CreateSubCategori extends CreateRecord
     protected static ?string $title = 'Nova Subcategoria';
 
     protected static string $resource = SubCategoriResource::class;
+
 }

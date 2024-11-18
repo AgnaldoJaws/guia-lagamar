@@ -33,4 +33,9 @@ class AtrativosSubs extends Model
     {
         return $this->belongsTo(SubCategory::class, 'subcat_id', 'id');
     }
+
+    public function atrativos()
+    {
+        return $this->hasMany(Information::class, 'id', 'atrativo_id');
+    }
 }
