@@ -239,7 +239,7 @@ class PostController extends Controller {
         foreach($SubCategories as $key => $value )
         {
             $SubCategory[$key]['id'] = $value->id;
-            $SubCategory[$key]['nome_subcategory'] = $value->nome_subcategory;
+            $SubCategory[$key]['title'] = $value->nome_subcategory;
 
         }
         return ['data' => $SubCategory];
