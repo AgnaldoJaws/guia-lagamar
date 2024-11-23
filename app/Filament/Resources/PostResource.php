@@ -51,6 +51,14 @@ class PostResource extends Resource
 
                 Forms\Components\TextInput::make('logoPath')->hidden(),
 
+                Forms\Components\Select::make('status')
+                    ->label('Status')
+                    ->options([
+                        true => 'Ativo',
+                        false => 'Inativo',
+                    ])
+                    ->default(true),
+
                 Forms\Components\FileUpload::make('file')
                     ->label('Thumbnail')
                     ->directory('lagamar/atrativos/logo')
@@ -171,7 +179,10 @@ class PostResource extends Resource
 
             ->columns([
                 Tables\Columns\ImageColumn::make('full_url')->label('Thumbnail')->ring(5),
-                Tables\Columns\TextColumn::make('author.name')->label('Autor')->sortable(),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Ativo' : 'Inativo'),
+                Tables\Columns\TextColumn::make('city.cityName')->label('Cidade')->sortable(),
                 Tables\Columns\TextColumn::make('title')->label('Título')->sortable(),
 
                 Tables\Columns\TextColumn::make('atrativoSubs.subCategory.category.categoryName')->label('Categorias')

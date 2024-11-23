@@ -303,7 +303,57 @@ class PostController extends Controller {
         $type = $request->type;
 
         if($type == 'experience'){
+            // Define uma chave única para o cache baseada no ID da subcategoria
+            $cacheKey = "content_by_sub_{$type}";
+            $sub_id = [72,74];
+            // Tenta recuperar os dados do cache
+            $atrativos = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($sub_id) {
+                return AtrativosSubs::with('atrativos','atrativos.city') // Inclua os campos necessários
+                ->whereIn('subcat_id', $sub_id)
+                    ->get()
+                    ->pluck('atrativos') // Obtém apenas os dados da relação
+                    ->flatten()
+                    ->map(function ($atrativo) {
+                        return [
+                            'id' => $atrativo['id'],
+                            'title' => $atrativo['title'],
+                            'desc' => $atrativo['desc'],
+                            'location' => $atrativo['location'],
+                            'cityName' => $atrativo['city']['cityName']
+                        ];
+                    })
+                    ->toArray();
+            });
 
+
+            return ['data' => $atrativos];
+        }
+
+        if($type == 'recommend'){
+            // Define uma chave única para o cache baseada no ID da subcategoria
+            $cacheKey = "content_by_sub_{$type}";
+            $sub_id = [73,74];
+            // Tenta recuperar os dados do cache
+            $atrativos = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($sub_id) {
+                return AtrativosSubs::with('atrativos','atrativos.city') // Inclua os campos necessários
+                ->whereIn('subcat_id', $sub_id)
+                    ->get()
+                    ->pluck('atrativos') // Obtém apenas os dados da relação
+                    ->flatten()
+                    ->map(function ($atrativo) {
+                        return [
+                            'id' => $atrativo['id'],
+                            'title' => $atrativo['title'],
+                            'desc' => $atrativo['desc'],
+                            'location' => $atrativo['location'],
+                            'cityName' => $atrativo['city']['cityName']
+                        ];
+                    })
+                    ->toArray();
+            });
+
+
+            return ['data' => $atrativos];
         }
     }
 

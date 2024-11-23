@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('information', function (Blueprint $table) {
-            $table->integer('subcat_id')->nullable();  // Adiciona o campo subcat_id
+            $table->boolean('status')->default(true)->after('forma_acesso');
         });
     }
 
@@ -22,7 +22,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('information', function (Blueprint $table) {
-            $table->dropColumn('subcat_id');  // Remove o campo subcat_id
+            $table->dropColumn('status');
         });
     }
 };

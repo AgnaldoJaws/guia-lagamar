@@ -30,7 +30,8 @@ class Information extends Model
         'cities_id',
         'category_id',
         'subcat_id',
-        'file'
+        'file',
+        'status'
     ];
 
     use HasFactory;
@@ -38,6 +39,11 @@ class Information extends Model
     protected static function boot()
     {
         parent::boot();
+        if (!Auth::check()) {
+            static::addGlobalScope('status', function (\Illuminate\Database\Eloquent\Builder $builder) {
+                $builder->where('status',true);
+            });
+        }
 
         static::created(function ($model) {
             DB::table('cache')->where('key', 'like', '%laravel_cache%')->delete();
