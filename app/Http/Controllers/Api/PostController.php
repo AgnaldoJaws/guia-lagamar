@@ -185,49 +185,34 @@ class PostController extends Controller {
 
     public function show($post_id)
     {
-        // Definimos um tempo de cache em minutos, aqui está configurado para 60 minutos
-        $cacheTime = 60;
+        $posts = Information::where('id', $post_id)->get();
 
-        // Verificamos se os dados já estão em cache, se não estiverem, executamos a consulta e armazenamos no cache
-        $data = Cache::remember("post_{$post_id}", $cacheTime, function () use ($post_id) {
-            $arrayCompany = [];
-            $id = [];
-
-            $posts = Information::where('id', $post_id)->get();
-
-            foreach ($posts as $value) {
-                $companies = [
-                    'id' => $value->id,
-                    'title' => $value->title,
-                    'desc' => $value->desc,
-                    'content' => $value->content,
-                    'full_url' => $value->full_url,
-                    'references' => $value->references,
-                    'location' => $value->location,
-                    'lat' => $value->lat,
-                    'long' => $value->long,
-                    'forma_acesso' => $value->forma_acesso,
-                    'cities_id' => $value->cities_id,
-                    'subCategory_id' => $value->subCategory_id,
-                ];
-
-//                $arrayCompany[] = $companies;
-//                $id[] = $companies['id'];
-            }
-
-            $images = ImagePost::where('informacaos_id', $post_id)->get();
-
-            $img = $images->count() > 0 ? $images->pluck('full_url_img')->toArray() : [];
-
-            // Montamos o objeto para o front
-            return [
-                    'post' => $companies,
-                    'imgs' => $img,
+        foreach ($posts as $value) {
+            $companies = [
+                'id' => $value->id,
+                'title' => $value->title,
+                'desc' => $value->desc,
+                'content' => $value->content,
+                'full_url' => $value->full_url,
+                'references' => $value->references,
+                'location' => $value->location,
+                'lat' => $value->lat,
+                'long' => $value->long,
+                'forma_acesso' => $value->forma_acesso,
+                'cities_id' => $value->cities_id,
+                'subCategory_id' => $value->subCategory_id,
             ];
-        });
+        }
 
-        return $data;
+        $images = ImagePost::where('informacaos_id', $post_id)->get();
+        $img = $images->count() > 0 ? $images->pluck('full_url_img')->toArray() : [];
+
+        return [
+            'post' => $companies ?? null,
+            'imgs' => $img,
+        ];
     }
+
 
     public function getSubCategories($city)
     {
