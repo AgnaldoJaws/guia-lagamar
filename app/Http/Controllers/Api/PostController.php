@@ -5,342 +5,229 @@ namespace App\Http\Controllers\Api;
 use App\Models\ImagePost;
 use App\Models\Information;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\AtrativosSubs;
 use App\Models\Category;
 use App\Models\City;
-use Illuminate\Support\Facades\Cache;
-
-
-
 use App\Models\SubCategory;
 
-
-class PostController extends Controller {
-
+class PostController extends Controller
+{
     public function index($category, $city)
     {
-        // Chave do cache única para a consulta
-        $cacheKey = "subcategories_{$category}_{$city}";
+        $sub_categories = SubCategory::where('cities_id', $city)
+            ->where('category_id', $category)
+            ->orderBy('nome_subcategory', 'asc')
+            ->get(['id', 'nome_subcategory', 'imagem']);
 
-        // Verifica se o resultado está no cache
-        $data = Cache::remember($cacheKey, now()->addMinutes(10), function () use ($category, $city) {
-            // Consulta as subcategoriasf
-            $sub_categories = SubCategory::where('cities_id', $city)
-                ->where('category_id', $category)
-                ->orderBy('nome_subcategory', 'asc')
-                ->get(['id', 'nome_subcategory','imagem']); // Seleciona apenas os campos necessários
-
-            // Formata os dados das subcategorias
-            $formattedData = $sub_categories->map(function ($subCategory) {
-                return [
-                    'id' => $subCategory->id,
-                    'nome_subcategory' => $subCategory->nome_subcategory,
-                    'path' => $subCategory->full_url,
-                ];
-            });
-
-            // Consulta a cidade e a categoria
-            $cityName = City::where('id', $city)->pluck('cityName')->first();
-            $categoryName = Category::where('id', $category)->pluck('categoryName')->first();
-
+        $formattedData = $sub_categories->map(function ($subCategory) {
             return [
-                'subcategories' => $formattedData,
-                'city' => $cityName,
-                'category' => $categoryName,
-                'cityId' => $city,
+                'id' => $subCategory->id,
+                'nome_subcategory' => $subCategory->nome_subcategory,
+                'path' => $subCategory->full_url,
             ];
         });
 
-        return response()->json($data);
+        $cityName = City::where('id', $city)->pluck('cityName')->first();
+        $categoryName = Category::where('id', $category)->pluck('categoryName')->first();
+
+        return response()->json([
+            'subcategories' => $formattedData,
+            'city' => $cityName,
+            'category' => $categoryName,
+            'cityId' => $city,
+        ]);
     }
 
     public function goToAtrativos($subCategory_id, $cities_id)
     {
-        $cacheKey = "goToAtrativos_{$subCategory_id}_{$cities_id}";
+        $subCategory = SubCategory::select('nome_subcategory')->where('id', $subCategory_id)->first();
+        $city = City::select('id', 'cityName')->where('id', $cities_id)->first()->cityName;
 
-        return Cache::remember($cacheKey, now()->addDay(), function () use ($subCategory_id, $cities_id) {
-            // Obter nome da subcategoria
-            $subCategory = SubCategory::select('nome_subcategory')->where('id', $subCategory_id)->first();
+        $count = AtrativosSubs::where('subcat_id', $subCategory_id)->where('cities_id', $cities_id)->count();
+        $atrativos_sub = AtrativosSubs::where('subcat_id', $subCategory_id)->where('cities_id', $cities_id)->pluck('atrativo_id');
 
-            // Obter nome da cidade
-            $city = City::select('id', 'cityName')->where('id', $cities_id)->first()->cityName;
+        $posts = Information::whereIn('id', $atrativos_sub)->orderBy('title', 'asc')->get();
 
-            // Contar o número de registros relacionados
-            $count = AtrativosSubs::where('subcat_id', $subCategory_id)->where('cities_id', $cities_id)->count();
-
-            // Obter IDs dos atrativos relacionados
-            $atrativos_sub = AtrativosSubs::where('subcat_id', $subCategory_id)->where('cities_id', $cities_id)->pluck('atrativo_id');
-
-            // Buscar informações detalhadas dos atrativos
-            $posts = Information::whereIn('id', $atrativos_sub)->orderBy('title', 'asc')->get();
-
-            // Preparar dados para retorno
-            $data = [];
-            foreach ($posts as $key => $value) {
-                $data[$key]['id'] = $value->id;
-                $data[$key]['title'] = $value->title;
-                $data[$key]['location'] = $value->location;
-                $data[$key]['logoPath'] = $value->full_url; // Certifique-se de ter o atributo correto para a URL completa da imagem
-                $data[$key]['desc'] = $value->desc;
-                $data[$key]['content'] = $value->content;
-                $data[$key]['forma_acesso'] = $value->forma_acesso;
-            }
-
-            // Agrupar todos os dados em um array final
-            $result = [
-                'data' => $data,
-                'nome_subcategory' => $subCategory->nome_subcategory,
-                'city' => $city,
-                'cityId' => $cities_id,
-                'count' => $count
+        $data = $posts->map(function ($value) {
+            return [
+                'id' => $value->id,
+                'title' => $value->title,
+                'location' => $value->location,
+                'logoPath' => $value->full_url,
+                'desc' => $value->desc,
+                'content' => $value->content,
+                'forma_acesso' => $value->forma_acesso,
             ];
-
-            return $result;
         });
+
+        return [
+            'data' => $data,
+            'nome_subcategory' => $subCategory->nome_subcategory,
+            'city' => $city,
+            'cityId' => $cities_id,
+            'count' => $count,
+        ];
     }
 
-    public function goToAtrativosByCidade( $cities_id)
+    public function goToAtrativosByCidade($cities_id)
     {
+        $subCategory = SubCategory::select('nome_subcategory')->where('cities_id', $cities_id)->first();
+        $city = City::select('id', 'cityName')->where('id', $cities_id)->first()->cityName;
+        $count = AtrativosSubs::where('cities_id', $cities_id)->count();
+        $atrativos_sub = AtrativosSubs::where('cities_id', $cities_id)->pluck('atrativo_id');
+        $posts = Information::whereIn('id', $atrativos_sub)->orderBy('title', 'asc')->get();
 
-        $cacheKey = "goToAtrativosByCidade_{$cities_id}";
-
-        return Cache::remember($cacheKey, now()->addDay(), function () use ($cities_id) {
-            // Obter nome da subcategoria
-            $subCategory = SubCategory::select('nome_subcategory')->where('cities_id', $cities_id)->first();
-
-            // Obter nome da cidade
-            $city = City::select('id', 'cityName')->where('id', $cities_id)->first()->cityName;
-
-            // Contar o número de registros relacionados
-            $count = AtrativosSubs::where('cities_id', $cities_id)->count();
-
-            // Obter IDs dos atrativos relacionados
-            $atrativos_sub = AtrativosSubs::where('cities_id', $cities_id)->pluck('atrativo_id');
-
-            // Buscar informações detalhadas dos atrativos
-            $posts = Information::whereIn('id', $atrativos_sub)->orderBy('title', 'asc')->get();
-
-            // Preparar dados para retorno
-            $data = [];
-            foreach ($posts as $key => $value) {
-                $data[$key]['id'] = $value->id;
-                $data[$key]['title'] = $value->title;
-                $data[$key]['logoPath'] = $value->full_url; // Certifique-se de ter o atributo correto para a URL completa da imagem
-                $data[$key]['desc'] = $value->desc;
-                $data[$key]['content'] = $value->content;
-                $data[$key]['forma_acesso'] = $value->forma_acesso;
-            }
-
-            // Agrupar todos os dados em um array final
-            $result = [
-                'data' => $data,
-                'city' => $city,
-                'cityId' => $cities_id,
-                'count' => $count
+        $data = $posts->map(function ($value) {
+            return [
+                'id' => $value->id,
+                'title' => $value->title,
+                'logoPath' => $value->full_url,
+                'desc' => $value->desc,
+                'content' => $value->content,
+                'forma_acesso' => $value->forma_acesso,
             ];
-
-            return $result;
         });
+
+        return [
+            'data' => $data,
+            'city' => $city,
+            'cityId' => $cities_id,
+            'count' => $count,
+        ];
     }
 
-
-    public function getAtractives($subCategory_id, $cities_id,$user_id)
+    public function getAtractives($subCategory_id, $cities_id, $user_id)
     {
+        $subCategory = SubCategory::select('nome_subcategory')->where('id', $subCategory_id)->first();
+        $city = City::select('id', 'cityName')->where('id', $cities_id)->first()->cityName;
+        $atrativos_sub = AtrativosSubs::where('subcat_id', $subCategory_id)->where('cities_id', $cities_id)->pluck('atrativo_id');
 
-        $subCategory = SubCategory::select('nome_subcategory')->where('id',$subCategory_id)->first();
-        $city = City::select('id','cityName')->where('id',$cities_id)->first();
-        $city = $city->cityName;
-        $count = $atrativos_sub = AtrativosSubs::where('subcat_id',$subCategory_id)->where('cities_id', $cities_id)->count();
+        $count = count($atrativos_sub);
+        $posts = Information::whereIn('id', $atrativos_sub)->where('user_id', $user_id)->orderBy('title', 'asc')->get();
 
+        $data = $posts->map(function ($value) {
+            return [
+                'id' => $value->id,
+                'title' => $value->title,
+                'location' => $value->location,
+                'logoPath' => $value->full_url,
+                'desc' => $value->desc,
+                'content' => $value->content,
+            ];
+        });
 
-        $atrativos_sub = AtrativosSubs::where('subcat_id',$subCategory_id)->where('cities_id', $cities_id)->get();
-
-        foreach ($atrativos_sub as $key => $value)
-        {
-            $res[] = $value->atrativo_id;
-
-        }
-
-        $posts = Information::whereIn('id' , $res)->where('user_id',$user_id)->orderBy('title', 'asc')->get();
-
-        foreach ($posts as $key => $value)
-        {
-
-            $data[$key]['id'] = $value->id;
-            $data[$key]['title'] = $value->title;
-            $data[$key]['location'] = $value->location;
-            $data[$key]['logoPath'] = $value->full_url;
-            $data[$key]['desc'] = $value->desc;
-            $data[$key]['content'] = $value->content;
-
-        }
-
-
-        $data = ['data' => $data, 'nome_subcategory' => $subCategory->nome_subcategory, 'city'=>$city, 'cityId'=>$cities_id, 'count' => $count];
-
-        return $data;
+        return [
+            'data' => $data,
+            'nome_subcategory' => $subCategory->nome_subcategory,
+            'city' => $city,
+            'cityId' => $cities_id,
+            'count' => $count,
+        ];
     }
 
     public function show($post_id)
     {
-        $posts = Information::where('id', $post_id)->get();
+        $value = Information::where('id', $post_id)->first();
 
-        foreach ($posts as $value) {
-            $companies = [
-                'id' => $value->id,
-                'title' => $value->title,
-                'desc' => $value->desc,
-                'content' => $value->content,
-                'full_url' => $value->full_url,
-                'references' => $value->references,
-                'location' => $value->location,
-                'lat' => $value->lat,
-                'long' => $value->long,
-                'forma_acesso' => $value->forma_acesso,
-                'cities_id' => $value->cities_id,
-                'subCategory_id' => $value->subCategory_id,
-            ];
-        }
+        $companies = [
+            'id' => $value->id,
+            'title' => $value->title,
+            'desc' => $value->desc,
+            'content' => $value->content,
+            'full_url' => $value->full_url,
+            'references' => $value->references,
+            'location' => $value->location,
+            'lat' => $value->lat,
+            'long' => $value->long,
+            'forma_acesso' => $value->forma_acesso,
+            'cities_id' => $value->cities_id,
+            'subCategory_id' => $value->subCategory_id,
+        ];
 
-        $images = ImagePost::where('informacaos_id', $post_id)->get();
-        $img = $images->count() > 0 ? $images->pluck('full_url_img')->toArray() : [];
+        $images = ImagePost::where('informacaos_id', $post_id)->pluck('full_url_img')->toArray();
 
         return [
-            'post' => $companies ?? null,
-            'imgs' => $img,
+            'post' => $companies,
+            'imgs' => $images,
         ];
     }
 
-
     public function getSubCategories($city)
     {
-        $categories = [1,3,11];
+        $categories = [1, 3, 11];
         $SubCategories = SubCategory::whereIn('category_id', $categories)
             ->where('cities_id', $city)
             ->get();
 
-        foreach($SubCategories as $key => $value )
-        {
-            $SubCategory[$key]['id'] = $value->id;
-            $SubCategory[$key]['title'] = $value->nome_subcategory;
+        $SubCategory = $SubCategories->map(function ($value) {
+            return [
+                'id' => $value->id,
+                'title' => $value->nome_subcategory,
+            ];
+        });
 
-        }
         return ['data' => $SubCategory];
-
-
     }
 
-    public function getAllSubcategories($cities_id, $cat_id )
+    public function getAllSubcategories($cities_id, $cat_id)
     {
+        try {
+            $SubCategories = SubCategory::where('cities_id', $cities_id)->where('category_id', $cat_id)->get();
 
-        try{
+            $SubCategory = $SubCategories->map(function ($value) {
+                return [
+                    'id' => $value->id,
+                    'title' => $value->nome_subcategory,
+                ];
+            });
 
-
-            $SubCategories = SubCategory::where('cities_id',$cities_id)->where('category_id',$cat_id)->get();
-
-            if ($SubCategories->isEmpty() == true)
-            {
-                $SubCategory = null;
-            }
-
-            foreach($SubCategories as $key => $value )
-            {
-                $SubCategory[$key]['id'] = $value->id;
-                $SubCategory[$key]['title'] = $value->nome_subcategory;
-
-            }
             return ['data' => $SubCategory];
-
-        }catch (\Exception $e){
-
+        } catch (\Exception $e) {
             return $e->getMessage();
         }
-
     }
 
-    public function getContentBySub($sub_id)
+    public function getContentBySub($sub_id, $city_id)
     {
-        // Define uma chave única para o cache baseada no ID da subcategoria
-        $cacheKey = "content_by_sub_{$sub_id}";
-
-        // Tenta recuperar os dados do cache
-        $atrativos = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($sub_id) {
-            return AtrativosSubs::with('atrativos:id,title')
-                ->where('subcat_id', $sub_id)
-                ->get()
-                ->pluck('atrativos') // Obtém apenas os dados da relação
-                ->flatten()
-                ->map(function ($atrativo) {
-                    return [
-                        'id' => $atrativo['id'],
-                        'title' => $atrativo['title'],
-                    ];
-                })
-                ->toArray();
-        });
+        $atrativos = AtrativosSubs::with('atrativos:id,title')
+            ->where('subcat_id', $sub_id)
+            ->where('cities_id', $city_id)
+            ->get()
+            ->pluck('atrativos')
+            ->flatten()
+            ->map(function ($atrativo) {
+                return [
+                    'id' => $atrativo['id'],
+                    'title' => $atrativo['title'],
+                ];
+            })
+            ->toArray();
 
         return ['data' => $atrativos];
     }
 
-    public function contentHome(Request $request){
+    public function contentHome(Request $request)
+    {
         $type = $request->type;
 
-        if($type == 'experience'){
-            // Define uma chave única para o cache baseada no ID da subcategoria
-            $cacheKey = "content_by_sub_{$type}";
-            $sub_id = [72,74];
-            // Tenta recuperar os dados do cache
-            $atrativos = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($sub_id) {
-                return AtrativosSubs::with('atrativos','atrativos.city') // Inclua os campos necessários
-                ->whereIn('subcat_id', $sub_id)
-                    ->get()
-                    ->pluck('atrativos') // Obtém apenas os dados da relação
-                    ->flatten()
-                    ->map(function ($atrativo) {
-                        return [
-                            'id' => $atrativo['id'],
-                            'title' => $atrativo['title'],
-                            'desc' => $atrativo['desc'],
-                            'location' => $atrativo['location'],
-                            'cityName' => $atrativo['city']['cityName']
-                        ];
-                    })
-                    ->toArray();
-            });
+        $sub_id = $type === 'experience' ? [72, 74] : ($type === 'recommend' ? [73, 74] : []);
+        $atrativos = AtrativosSubs::with('atrativos', 'atrativos.city')
+            ->whereIn('subcat_id', $sub_id)
+            ->get()
+            ->pluck('atrativos')
+            ->flatten()
+            ->map(function ($atrativo) {
+                return [
+                    'id' => $atrativo['id'],
+                    'title' => $atrativo['title'],
+                    'desc' => $atrativo['desc'],
+                    'location' => $atrativo['location'],
+                    'cityName' => $atrativo['city']['cityName'],
+                ];
+            })
+            ->toArray();
 
-
-            return ['data' => $atrativos];
-        }
-
-        if($type == 'recommend'){
-            // Define uma chave única para o cache baseada no ID da subcategoria
-            $cacheKey = "content_by_sub_{$type}";
-            $sub_id = [73,74];
-            // Tenta recuperar os dados do cache
-            $atrativos = Cache::remember($cacheKey, now()->addMinutes(30), function () use ($sub_id) {
-                return AtrativosSubs::with('atrativos','atrativos.city') // Inclua os campos necessários
-                ->whereIn('subcat_id', $sub_id)
-                    ->get()
-                    ->pluck('atrativos') // Obtém apenas os dados da relação
-                    ->flatten()
-                    ->map(function ($atrativo) {
-                        return [
-                            'id' => $atrativo['id'],
-                            'title' => $atrativo['title'],
-                            'desc' => $atrativo['desc'],
-                            'location' => $atrativo['location'],
-                            'cityName' => $atrativo['city']['cityName']
-                        ];
-                    })
-                    ->toArray();
-            });
-
-
-            return ['data' => $atrativos];
-        }
+        return ['data' => $atrativos];
     }
-
-
 }
