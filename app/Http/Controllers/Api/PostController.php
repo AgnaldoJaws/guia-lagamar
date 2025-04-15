@@ -145,7 +145,7 @@ class PostController extends Controller
             'subCategory_id' => $value->subCategory_id,
         ];
 
-        $images = ImagePost::where('informacaos_id', $post_id)->pluck('full_url_img')->toArray();
+        $images = ImagePost::where('informacaos_id', $post_id)->get()->pluck('full_url_img')->toArray();
 
         return [
             'post' => $companies,
