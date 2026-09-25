@@ -1,0 +1,7 @@
+{
+    # Keep port 80 available for the deployment probe; HTTPS is still issued
+    # automatically by Caddy for APP_DOMAIN and served on port 443.
+    auto_https disable_redirects
+}
+
+import /etc/caddy/conf.d/active.caddy

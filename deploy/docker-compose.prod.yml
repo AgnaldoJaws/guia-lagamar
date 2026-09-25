@@ -1,0 +1,52 @@
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: guia-lagamar-caddy
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ../docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./runtime/active.caddy:/etc/caddy/conf.d/active.caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - proxy
+
+  app-blue:
+    image: ${APP_BLUE_IMAGE:-ghcr.io/invalid/guia-lagamar:missing}
+    container_name: guia-lagamar-app-blue
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    volumes:
+      - laravel_uploads:/var/www/html/storage/app/public
+    networks:
+      - proxy
+
+  app-green:
+    image: ${APP_GREEN_IMAGE:-ghcr.io/invalid/guia-lagamar:missing}
+    container_name: guia-lagamar-app-green
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    volumes:
+      - laravel_uploads:/var/www/html/storage/app/public
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: guia-lagamar-proxy
+
+volumes:
+  laravel_uploads:
+    name: guia-lagamar-uploads
+  caddy_data:
+    name: guia-lagamar-caddy-data
+  caddy_config:
+    name: guia-lagamar-caddy-config
