@@ -102,7 +102,13 @@ check_via_caddy() {
     path="${1:-/up}"
     domain="$(docker exec guia-lagamar-caddy /bin/sh -c 'printf %s "$APP_DOMAIN"')"
     [[ -n "$domain" ]] || domain="localhost"
-    docker exec guia-lagamar-caddy wget -q -O /dev/null --no-check-certificate --header="Host: ${domain}" "https://127.0.0.1${path}"
+    # BusyBox wget has no --resolve option. Map the public hostname to this
+    # network namespace so the URL sets both TLS SNI and HTTP Host correctly
+    # without requiring public DNS from inside the container.
+    docker exec guia-lagamar-caddy /bin/sh -c '
+        grep -Fqx "127.0.0.1 $APP_DOMAIN" /etc/hosts || printf "127.0.0.1 %s\n" "$APP_DOMAIN" >> /etc/hosts
+    '
+    docker exec guia-lagamar-caddy wget -q -O /dev/null "https://${domain}${path}"
 }
 
 cleanup_failed_target() {
