@@ -34,7 +34,7 @@ services:
         export MYSQL_USER="$${DB_USERNAME:?DB_USERNAME must be set in .env}"
         export MYSQL_PASSWORD="$${DB_PASSWORD:?DB_PASSWORD must be set in .env}"
         export MYSQL_ROOT_PASSWORD="$${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set in .env}"
-        exec /usr/local/bin/docker-entrypoint.sh "$$@"
+        exec /usr/local/bin/docker-entrypoint.sh mysqld
       - --
     volumes:
       - mysql_data:/var/lib/mysql
