@@ -102,17 +102,21 @@ check_via_caddy() {
     path="${1:-/up}"
     domain="$(docker exec guia-lagamar-caddy /bin/sh -c 'printf %s "$APP_DOMAIN"')"
     [[ -n "$domain" ]] || domain="localhost"
-    docker exec guia-lagamar-caddy wget -q -O /dev/null --header="Host: ${domain}" "http://127.0.0.1${path}"
+    docker exec guia-lagamar-caddy wget -q -O /dev/null --no-check-certificate --header="Host: ${domain}" "https://127.0.0.1${path}"
 }
 
 cleanup_failed_target() {
     local status=$?
     if [[ $status -ne 0 ]]; then
         echo "Deploy failed; keeping ${active_slot:-no existing slot} serving traffic." >&2
-        compose rm -sf "$target_service" >/dev/null 2>&1 || true
         if [[ -n "$active_slot" ]]; then
+            compose rm -sf "$target_service" >/dev/null 2>&1 || true
             write_caddy_config "$active_slot" "$active_slot"
             reload_caddy >/dev/null 2>&1 || true
+        else
+            write_caddy_config "" ""
+            reload_caddy >/dev/null 2>&1 || true
+            compose rm -sf "$target_service" >/dev/null 2>&1 || true
         fi
     fi
     exit "$status"
