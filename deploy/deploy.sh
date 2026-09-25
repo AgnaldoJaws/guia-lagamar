@@ -29,7 +29,23 @@ mkdir -p "$RUNTIME_DIR"
 touch "$IMAGES_FILE"
 
 compose() {
-    docker compose --env-file "$IMAGES_FILE" -f "$COMPOSE_FILE" "$@"
+    # The production .env supplies Laravel and MySQL credentials. images.env
+    # contains only non-secret immutable image references and overrides no DB
+    # values.
+    docker compose --env-file "$ENV_FILE" --env-file "$IMAGES_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+wait_for_mysql() {
+    local health=""
+    echo "Waiting for MySQL healthcheck..."
+    for _ in $(seq 1 36); do
+        health="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}starting{{end}}' guia-lagamar-mysql 2>/dev/null || true)"
+        [[ "$health" == "healthy" ]] && return 0
+        [[ "$health" == "unhealthy" ]] && { docker logs --tail 100 guia-lagamar-mysql >&2 || true; return 1; }
+        sleep 5
+    done
+    docker logs --tail 100 guia-lagamar-mysql >&2 || true
+    return 1
 }
 
 active_slot=""
@@ -109,6 +125,8 @@ if [[ ! -f "$CADDY_ACTIVE_FILE" ]]; then
     write_caddy_config "" ""
 fi
 compose up -d caddy
+compose up -d mysql
+wait_for_mysql
 
 printf 'Deploying %s to %s (current: %s)\n' "$IMAGE" "$target_slot" "${active_slot:-none}"
 if [[ "$target_slot" == "blue" ]]; then
