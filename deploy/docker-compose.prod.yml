@@ -1,0 +1,96 @@
+services:
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: guia-lagamar-caddy
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ../docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./runtime/active.caddy:/etc/caddy/conf.d/active.caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - proxy
+
+  mysql:
+    image: mysql:8.0.43
+    container_name: guia-lagamar-mysql
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    # The official image expects MYSQL_* only during initialization. Map the
+    # existing DB_* secrets inside the container so Compose never interpolates
+    # passwords (which may contain '$' or other special characters).
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        export MYSQL_DATABASE="$${DB_DATABASE:?DB_DATABASE must be set in .env}"
+        export MYSQL_USER="$${DB_USERNAME:?DB_USERNAME must be set in .env}"
+        export MYSQL_PASSWORD="$${DB_PASSWORD:?DB_PASSWORD must be set in .env}"
+        export MYSQL_ROOT_PASSWORD="$${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set in .env}"
+        exec /usr/local/bin/docker-entrypoint.sh mysqld
+      - --
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - proxy
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -uroot -p$${DB_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  app-blue:
+    image: ${APP_BLUE_IMAGE:-ghcr.io/invalid/guia-lagamar:missing}
+    container_name: guia-lagamar-app-blue
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+    volumes:
+      - laravel_uploads:/var/www/html/storage/app/public
+    networks:
+      - proxy
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  app-green:
+    image: ${APP_GREEN_IMAGE:-ghcr.io/invalid/guia-lagamar:missing}
+    container_name: guia-lagamar-app-green
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: "3306"
+    volumes:
+      - laravel_uploads:/var/www/html/storage/app/public
+    networks:
+      - proxy
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+networks:
+  proxy:
+    name: guia-lagamar-proxy
+
+volumes:
+  laravel_uploads:
+    name: guia-lagamar-uploads
+  mysql_data:
+    name: guia-lagamar-mysql-data
+  caddy_data:
+    name: guia-lagamar-caddy-data
+  caddy_config:
+    name: guia-lagamar-caddy-config
