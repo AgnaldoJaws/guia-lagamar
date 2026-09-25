@@ -13,7 +13,7 @@ permissions:
   packages: write
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/guia-lagamar
+  IMAGE_NAME: ghcr.io/agnaldojaws/guia-lagamar
 
 jobs:
   test-build-deploy:
