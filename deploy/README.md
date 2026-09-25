@@ -88,12 +88,12 @@ ou restaure um backup do banco somente por procedimento operacional separado.
 
 ## Deploy e rollback
 
-O push em `main` publica `ghcr.io/<owner>/guia-lagamar:<SHA>` e chama o script
+O push em `main` publica `ghcr.io/agnaldojaws/guia-lagamar:<SHA>` e chama o script
 remoto. Para rollback manual, use uma tag SHA já publicada:
 
 ```bash
 cd /opt/guia-lagamar
-IMAGE_REPOSITORY=ghcr.io/<owner>/guia-lagamar ./deploy/deploy.sh <SHA-anterior>
+IMAGE_REPOSITORY=ghcr.io/agnaldojaws/guia-lagamar ./deploy/deploy.sh <SHA-anterior>
 ```
 
 O rollback troca novamente o tráfego via Blue/Green. Ele não desfaz migrations:
