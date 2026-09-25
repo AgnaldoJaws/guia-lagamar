@@ -1,31 +1,8 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS frontend
-WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci
-COPY resources ./resources
-COPY public ./public
-COPY vite.config.js ./
-RUN npm run build
+FROM php:8.3-apache-bookworm AS php-base
 
-FROM composer:2.7 AS vendor
-WORKDIR /app
-COPY composer.json composer.lock ./
-RUN composer install \
-    --no-dev \
-    --prefer-dist \
-    --optimize-autoloader \
-    --no-scripts \
-    --no-interaction \
-    --no-progress
-
-FROM php:8.3-apache-bookworm AS production
-
-ENV APP_ENV=production \
-    APP_DEBUG=false \
-    LOG_CHANNEL=stderr \
-    APACHE_DOCUMENT_ROOT=/var/www/html/public
+ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -43,6 +20,35 @@ RUN apt-get update \
     && a2enmod rewrite \
     && sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
     && rm -rf /var/lib/apt/lists/*
+
+# Composer runs on the same PHP 8.3 image and extension set as production.
+# Copying the binary avoids relying on the PHP version packaged by composer:2.7.
+FROM php-base AS vendor
+COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
+WORKDIR /app
+COPY composer.json composer.lock ./
+RUN composer install \
+    --no-dev \
+    --prefer-dist \
+    --optimize-autoloader \
+    --no-scripts \
+    --no-interaction \
+    --no-progress
+
+FROM node:20-alpine AS frontend
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY resources ./resources
+COPY public ./public
+COPY vite.config.js ./
+RUN npm run build
+
+FROM php-base AS production
+
+ENV APP_ENV=production \
+    APP_DEBUG=false \
+    LOG_CHANNEL=stderr
 
 WORKDIR /var/www/html
 COPY --chown=www-data:www-data . .
