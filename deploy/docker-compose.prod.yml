@@ -11,7 +11,6 @@ services:
       - "443:443/udp"
     volumes:
       - ../docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./runtime/active.caddy:/etc/caddy/conf.d/active.caddy:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:
@@ -47,26 +46,9 @@ services:
       retries: 12
       start_period: 30s
 
-  app-blue:
-    image: ${APP_BLUE_IMAGE:-ghcr.io/invalid/guia-lagamar:missing}
-    container_name: guia-lagamar-app-blue
-    restart: unless-stopped
-    env_file:
-      - ../.env
-    environment:
-      DB_HOST: mysql
-      DB_PORT: "3306"
-    volumes:
-      - laravel_uploads:/var/www/html/storage/app/public
-    networks:
-      - proxy
-    depends_on:
-      mysql:
-        condition: service_healthy
-
-  app-green:
-    image: ${APP_GREEN_IMAGE:-ghcr.io/invalid/guia-lagamar:missing}
-    container_name: guia-lagamar-app-green
+  app:
+    image: ${APP_IMAGE:-ghcr.io/invalid/guia-lagamar:missing}
+    container_name: guia-lagamar-app
     restart: unless-stopped
     env_file:
       - ../.env
