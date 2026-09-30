@@ -17,7 +17,6 @@ Droplet. MySQL 8.0.43 roda em um único container e não expõe a porta 3306.
    ```dotenv
    APP_ENV=production
    APP_DEBUG=false
-   APP_DOMAIN=example.com
    DB_CONNECTION=mysql
    DB_HOST=mysql
    DB_PORT=3306
@@ -27,9 +26,9 @@ Droplet. MySQL 8.0.43 roda em um único container e não expõe a porta 3306.
    DB_ROOT_PASSWORD=troque-isto-tambem
    ```
 
-   `APP_DOMAIN` deve ser somente o hostname público, sem `https://`. DNS deve
-   apontar para a Droplet e as portas 80/443 devem estar abertas antes do
-   primeiro deploy para que Caddy emita o certificado.
+   DNS de `passaronegro.com.br` deve apontar para a Droplet e as portas 80/443
+   devem estar abertas antes do primeiro deploy para que Caddy emita o
+   certificado.
 3. No repositório GitHub, configure `PRODUCTION_HOST`, `PRODUCTION_USER`,
    `PRODUCTION_SSH_KEY` e `GHCR_TOKEN`. `GHCR_TOKEN` é um PAT do usuário de
    deploy com `read:packages`; ele é usado apenas para o `docker login` remoto.
