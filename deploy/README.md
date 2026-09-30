@@ -100,6 +100,18 @@ O rollback troca novamente o tráfego via Blue/Green. Ele não desfaz migrations
 as migrations de cada release precisam ser compatíveis com a versão anterior
 (estratégia expand/contract para alterações destrutivas).
 
-O script inicia o slot inativo, aguarda `/up`, executa `storage:link`,
-`migrate --force` e `optimize`, testa novamente e só então recarrega Caddy para
-o novo slot. Em falha, o slot candidato é removido e o ativo permanece no ar.
+O script lê o slot ativo em `deploy/runtime/active-slot`, inicia o outro slot e
+aguarda o `HEALTHCHECK` Docker. Depois de executar `storage:link` (somente se
+o link ainda não existir), `migrate --force` e `optimize`, ele valida o
+candidato diretamente por `http://127.0.0.1/up` dentro do container Laravel.
+Essa validação não passa pelo Caddy nem por TLS.
+
+Somente então o upstream do Caddy é alterado e o Caddy recebe um reload
+gracioso. O script valida `https://APP_DOMAIN/up` a partir do container
+Laravel, usando DNS, SNI e `Host` normais (sem o Caddy negociar TLS consigo
+mesmo).
+Se essa validação falhar, restaura o upstream do slot anterior, faz outro
+reload gracioso e só então remove o candidato. No primeiro deploy não há slot
+anterior: Caddy fica respondendo `503` até que o primeiro candidato passe pela
+validação HTTPS. O container do slot antigo só é removido após a validação
+pública bem-sucedida.

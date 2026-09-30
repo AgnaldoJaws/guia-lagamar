@@ -1,6 +1,6 @@
 {
-    # Keep port 80 available for the deployment probe; HTTPS is still issued
-    # automatically by Caddy for APP_DOMAIN and served on port 443.
+    # HTTP remains available for ACME. Caddy automatically issues and serves
+    # HTTPS certificates for APP_DOMAIN on port 443.
     auto_https disable_redirects
 }
 

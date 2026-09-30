@@ -68,7 +68,6 @@ old_container=""
 
 write_caddy_config() {
     local live_slot="$1"
-    local probe_slot="$2"
     if [[ -z "$live_slot" ]]; then
         cat > "$CADDY_ACTIVE_FILE" <<'EOF'
 :80 {
@@ -81,14 +80,7 @@ EOF
     cat > "$CADDY_ACTIVE_FILE" <<EOF
 {\$APP_DOMAIN:localhost} {
     encode zstd gzip
-    @deploymentProbe path /__deployment-health
-    handle @deploymentProbe {
-        uri replace /__deployment-health /up
-        reverse_proxy app-${probe_slot}:80
-    }
-    handle {
-        reverse_proxy app-${live_slot}:80
-    }
+    reverse_proxy app-${live_slot}:80
 }
 EOF
 }
@@ -97,18 +89,27 @@ reload_caddy() {
     docker exec guia-lagamar-caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 }
 
-check_via_caddy() {
-    local domain path
-    path="${1:-/up}"
+check_public_https() {
+    local domain
     domain="$(docker exec guia-lagamar-caddy /bin/sh -c 'printf %s "$APP_DOMAIN"')"
     [[ -n "$domain" ]] || domain="localhost"
-    # BusyBox wget has no --resolve option. Map the public hostname to this
-    # network namespace so the URL sets both TLS SNI and HTTP Host correctly
-    # without requiring public DNS from inside the container.
-    docker exec guia-lagamar-caddy /bin/sh -c '
-        grep -Fqx "127.0.0.1 $APP_DOMAIN" /etc/hosts || printf "127.0.0.1 %s\n" "$APP_DOMAIN" >> /etc/hosts
-    '
-    docker exec guia-lagamar-caddy wget -q -O /dev/null "https://${domain}${path}"
+    # Do not make Caddy establish TLS with itself. The Laravel image includes
+    # curl, and this reaches the public hostname with its normal DNS, SNI and
+    # Host handling after the Caddy upstream has already been switched.
+    docker exec "$target_container" curl --fail --silent --show-error \
+        --connect-timeout 5 --max-time 20 --retry 5 --retry-delay 2 \
+        "https://${domain}/up" >/dev/null
+}
+
+ensure_storage_link() {
+    # The entrypoint already creates this link. Laravel's command reports an
+    # error when it exists, so only invoke it when the link is actually absent.
+    if docker exec "$target_container" test -L public/storage; then
+        return
+    fi
+
+    docker exec "$target_container" php artisan storage:link --relative
+    docker exec "$target_container" test -L public/storage
 }
 
 cleanup_failed_target() {
@@ -116,11 +117,13 @@ cleanup_failed_target() {
     if [[ $status -ne 0 ]]; then
         echo "Deploy failed; keeping ${active_slot:-no existing slot} serving traffic." >&2
         if [[ -n "$active_slot" ]]; then
-            compose rm -sf "$target_service" >/dev/null 2>&1 || true
-            write_caddy_config "$active_slot" "$active_slot"
+            # Restore traffic before removing a target that may briefly have
+            # been the live upstream while the public HTTPS check was running.
+            write_caddy_config "$active_slot"
             reload_caddy >/dev/null 2>&1 || true
+            compose rm -sf "$target_service" >/dev/null 2>&1 || true
         else
-            write_caddy_config "" ""
+            write_caddy_config ""
             reload_caddy >/dev/null 2>&1 || true
             compose rm -sf "$target_service" >/dev/null 2>&1 || true
         fi
@@ -132,7 +135,7 @@ trap cleanup_failed_target EXIT
 # Start Caddy once. The initial file deliberately serves 503 until the first
 # application is healthy, which lets the proxy stay up through all later deploys.
 if [[ ! -f "$CADDY_ACTIVE_FILE" ]]; then
-    write_caddy_config "" ""
+    write_caddy_config ""
 fi
 compose up -d caddy
 compose up -d mysql
@@ -163,26 +166,25 @@ done
 
 echo "Running storage link, migrations, and Laravel production caches..."
 docker exec "$target_container" php artisan package:discover --ansi
-docker exec "$target_container" php artisan storage:link --relative
+ensure_storage_link
 docker exec "$target_container" php artisan migrate --force
 docker exec "$target_container" php artisan optimize
+# This is deliberately a direct HTTP request to the candidate container. Do
+# not route it through Caddy or HTTPS before the traffic switch.
 docker exec "$target_container" curl --fail --silent --show-error http://127.0.0.1/up >/dev/null
 
-# Keep normal traffic on the old slot, but prove the candidate through Caddy.
-write_caddy_config "${active_slot:-$target_slot}" "$target_slot"
-reload_caddy
-check_via_caddy /__deployment-health
-
 echo "Switching Caddy upstream to ${target_slot}..."
-write_caddy_config "$target_slot" "$target_slot"
+write_caddy_config "$target_slot"
 reload_caddy
-check_via_caddy
+check_public_https
 printf '%s\n' "$target_slot" > "$ACTIVE_FILE"
+# From this point the new upstream is committed. A best-effort cleanup failure
+# must not try to restore a slot that may have just been removed.
+trap - EXIT
 
 if [[ -n "$old_container" ]]; then
-    echo "Stopping previous slot: ${active_slot}"
-    compose stop "app-${active_slot}"
+    echo "Removing previous slot: ${active_slot}"
+    compose rm -sf "app-${active_slot}"
 fi
 
-trap - EXIT
 echo "Deploy complete: ${target_slot} is serving ${IMAGE}"
