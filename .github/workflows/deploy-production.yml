@@ -61,7 +61,6 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -74,7 +73,7 @@ jobs:
           source: deploy,docker
           target: /opt/guia-lagamar
 
-      - name: Deploy Blue/Green on Droplet
+      - name: Deploy on Droplet
         uses: appleboy/ssh-action@v1.2.0
         env:
           IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}

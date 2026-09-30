@@ -1,10 +1,9 @@
-# Produção: Docker + Blue/Green
+# Produção: Docker
 
 O host só precisa de Docker Engine e do plugin `docker compose`. O usuário de
 deploy deve poder executar `docker` (por exemplo, estar no grupo `docker`).
 PHP, Composer, Node e as dependências da aplicação não são instalados na
-Droplet. MySQL 8.0.43 roda em um único container compartilhado pelos slots
-Blue e Green; não participa da troca de tráfego e não expõe a porta 3306.
+Droplet. MySQL 8.0.43 roda em um único container e não expõe a porta 3306.
 
 ## Preparação única da Droplet
 
@@ -41,19 +40,27 @@ credenciais continuam exclusivamente no `.env`; elas também inicializam o
 container MySQL na primeira vez em que o volume estiver vazio.
 
 O volume Docker nomeado `guia-lagamar-uploads` é montado em
-`storage/app/public` nos dois slots. Portanto os uploads não pertencem à
-imagem nem são removidos quando o container anterior para. O link
+`storage/app/public`. Portanto os uploads não pertencem à imagem nem são
+removidos quando o container da aplicação é atualizado. O link
 `public/storage` é reconstruído idempotentemente na inicialização.
 
 O MySQL persiste em outro volume nomeado, `guia-lagamar-mysql-data`, montado
-em `/var/lib/mysql`. Os fluxos de deploy usam `up`, `pull`, `stop` e remoção
-somente do container Laravel candidato; nunca usam `docker compose down -v`.
+em `/var/lib/mysql`. O deploy usa `pull`, `run` e `up` apenas para a aplicação;
+nunca usa `docker compose down -v`.
 
 ## Bootstrap, restauração e backup do MySQL
 
-No primeiro deploy, o script inicia `mysql:8.0.43`, aguarda seu healthcheck e
-o MySQL cria `DB_DATABASE` e `DB_USERNAME` a partir do `.env`. Isso só ocorre
-com o volume `guia-lagamar-mysql-data` vazio.
+No provisionamento inicial, inicie Caddy e MySQL uma única vez antes do
+primeiro deploy da aplicação:
+
+```bash
+cd /opt/guia-lagamar
+docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d caddy mysql
+```
+
+O MySQL cria `DB_DATABASE` e `DB_USERNAME` a partir do `.env` somente quando o
+volume `guia-lagamar-mysql-data` está vazio. Os deploys seguintes não recriam
+Caddy ou MySQL.
 
 Para restaurar o dump existente **em uma instalação nova, antes do primeiro
 deploy da aplicação**, inicie somente o banco após as pastas de infraestrutura
@@ -86,32 +93,19 @@ restaurados: apenas a imagem Laravel volta para um SHA anterior. Migrations
 não sofrem rollback automático; mantenha migrations compatíveis entre versões
 ou restaure um backup do banco somente por procedimento operacional separado.
 
-## Deploy e rollback
+## Deploy
 
-O push em `main` publica `ghcr.io/agnaldojaws/guia-lagamar:<SHA>` e chama o script
-remoto. Para rollback manual, use uma tag SHA já publicada:
+O push em `main` publica `ghcr.io/agnaldojaws/guia-lagamar:<SHA>` e chama o
+script remoto. Ele faz pull da imagem, executa `php artisan migrate --force`
+em um container temporário e executa `docker compose up -d app`. Caddy e MySQL
+não são recriados ou recarregados.
+
+Para voltar manualmente a uma imagem SHA já publicada, execute o mesmo deploy:
 
 ```bash
 cd /opt/guia-lagamar
 IMAGE_REPOSITORY=ghcr.io/agnaldojaws/guia-lagamar ./deploy/deploy.sh <SHA-anterior>
 ```
 
-O rollback troca novamente o tráfego via Blue/Green. Ele não desfaz migrations:
-as migrations de cada release precisam ser compatíveis com a versão anterior
-(estratégia expand/contract para alterações destrutivas).
-
-O script lê o slot ativo em `deploy/runtime/active-slot`, inicia o outro slot e
-aguarda o `HEALTHCHECK` Docker. Depois de executar `storage:link` (somente se
-o link ainda não existir), `migrate --force` e `optimize`, ele valida o
-candidato diretamente por `http://127.0.0.1/up` dentro do container Laravel.
-Essa validação não passa pelo Caddy nem por TLS.
-
-Somente então o upstream do Caddy é alterado e o Caddy recebe um reload
-gracioso. O script valida `https://APP_DOMAIN/up` a partir do container
-Laravel, usando DNS, SNI e `Host` normais (sem o Caddy negociar TLS consigo
-mesmo).
-Se essa validação falhar, restaura o upstream do slot anterior, faz outro
-reload gracioso e só então remove o candidato. No primeiro deploy não há slot
-anterior: Caddy fica respondendo `503` até que o primeiro candidato passe pela
-validação HTTPS. O container do slot antigo só é removido após a validação
-pública bem-sucedida.
+Esse procedimento não desfaz migrations; mantenha migrations compatíveis com
+as versões anteriores quando precisar voltar uma imagem.

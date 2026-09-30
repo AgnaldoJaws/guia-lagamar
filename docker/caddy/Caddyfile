@@ -4,4 +4,7 @@
     auto_https disable_redirects
 }
 
-import /etc/caddy/conf.d/active.caddy
+{$APP_DOMAIN:localhost} {
+    encode zstd gzip
+    reverse_proxy app:80
+}
