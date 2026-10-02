@@ -26,7 +26,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: mbstring, intl, gd, pdo_sqlite, pdo_mysql, pdo_pgsql, zip
+          extensions: bcmath, ctype, curl, dom, fileinfo, gd, intl, mbstring, pdo_mysql, pdo_pgsql, pdo_sqlite, simplexml, sqlite3, xml, xmlreader, xmlwriter, zip, opcache
           coverage: none
 
       - name: Set up Node
@@ -40,6 +40,17 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: Run tests
+        run: php artisan test
+        env:
+          APP_ENV: testing
+          APP_KEY: base64:U/iGzNmCAe0UDfwcQMMxTMhdU4fqh4Cr9ho8psRjuXA=
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ':memory:'
+          SESSION_DRIVER: array
+          CACHE_STORE: array
+          QUEUE_CONNECTION: sync
 
       - name: Build frontend assets
         run: npm run build
@@ -63,6 +74,17 @@ jobs:
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Prepare remote infrastructure directory
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.PRODUCTION_HOST }}
+          username: ${{ secrets.PRODUCTION_USER }}
+          key: ${{ secrets.PRODUCTION_SSH_KEY }}
+          script: |
+            set -eu
+            mkdir -p /opt/guia-lagamar
+            rm -rf /opt/guia-lagamar/deploy /opt/guia-lagamar/docker
 
       - name: Upload production deployment files
         uses: appleboy/scp-action@v0.1.7

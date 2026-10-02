@@ -1,22 +1,29 @@
 # Produção: Docker
 
-O host só precisa de Docker Engine e do plugin `docker compose`. O usuário de
-deploy deve poder executar `docker` (por exemplo, estar no grupo `docker`).
-PHP, Composer, Node e as dependências da aplicação não são instalados na
-Droplet. MySQL 8.0.43 roda em um único container e não expõe a porta 3306.
+A produção usa uma stack Docker simples e persistente:
+
+```text
+Internet -> Caddy -> Nginx -> PHP 8.3-FPM / Laravel -> MySQL 8
+```
+
+Somente o Caddy publica portas no host: `80:80`, `443:443` e `443:443/udp`.
+Nginx, PHP-FPM e MySQL ficam apenas na rede Docker `guia-lagamar-proxy`.
+
+Não há Blue/Green, `active.caddy`, troca dinâmica de proxy, slots ou
+configuração temporária de 503 durante deploy.
 
 ## Preparação única da Droplet
 
-1. Crie `/opt/guia-lagamar` com posse do usuário de deploy e copie para lá as
-   pastas `deploy/` e `docker/` deste repositório. O workflow atualiza essas
-   duas pastas por SSH em cada deploy; ele **não** executa `git pull` no host.
-2. Crie `/opt/guia-lagamar/.env`, fora do repositório, com as variáveis
-   normais de produção do Laravel (`APP_KEY`, `APP_URL`, `DB_CONNECTION`,
-   `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`, `DB_ROOT_PASSWORD`, etc.) e:
+1. Crie `/opt/guia-lagamar` com posse do usuário de deploy. O workflow copia
+   as pastas versionadas `deploy/` e `docker/` para esse diretório em cada
+   deploy; ele não executa `git pull` no host.
+2. Mantenha `/opt/guia-lagamar/.env` fora do repositório, com as variáveis de
+   produção do Laravel e do MySQL:
 
    ```dotenv
    APP_ENV=production
    APP_DEBUG=false
+   APP_URL=https://passaronegro.com.br
    DB_CONNECTION=mysql
    DB_HOST=mysql
    DB_PORT=3306
@@ -26,85 +33,71 @@ Droplet. MySQL 8.0.43 roda em um único container e não expõe a porta 3306.
    DB_ROOT_PASSWORD=troque-isto-tambem
    ```
 
-   DNS de `passaronegro.com.br` deve apontar para a Droplet e as portas 80/443
-   devem estar abertas antes do primeiro deploy para que Caddy emita o
-   certificado.
-3. No repositório GitHub, configure `PRODUCTION_HOST`, `PRODUCTION_USER`,
-   `PRODUCTION_SSH_KEY` e `GHCR_TOKEN`. `GHCR_TOKEN` é um PAT do usuário de
-   deploy com `read:packages`; ele é usado apenas para o `docker login` remoto.
-   Garanta que o pacote GHCR permita leitura para esse token.
+3. Garanta que o DNS de `passaronegro.com.br` aponta para a Droplet e que as
+   portas 80/443 estão abertas para o Caddy emitir/renovar TLS.
+4. Configure no GitHub os secrets `PRODUCTION_HOST`, `PRODUCTION_USER`,
+   `PRODUCTION_SSH_KEY` e `GHCR_TOKEN`. O `GHCR_TOKEN` precisa de
+   `read:packages` para o `docker login` remoto.
 
-O Compose força `DB_HOST=mysql` e `DB_PORT=3306` nos containers Laravel. As
-credenciais continuam exclusivamente no `.env`; elas também inicializam o
-container MySQL na primeira vez em que o volume estiver vazio.
+## Volumes persistentes
 
-O volume Docker nomeado `guia-lagamar-uploads` é montado em
-`storage/app/public`. Portanto os uploads não pertencem à imagem nem são
-removidos quando o container da aplicação é atualizado. O link
-`public/storage` é reconstruído idempotentemente na inicialização.
+Os volumes existentes são preservados:
 
-O MySQL persiste em outro volume nomeado, `guia-lagamar-mysql-data`, montado
-em `/var/lib/mysql`. O deploy usa `pull`, `run` e `up` apenas para a aplicação;
-nunca usa `docker compose down -v`.
-
-## Bootstrap, restauração e backup do MySQL
-
-No provisionamento inicial, inicie Caddy e MySQL uma única vez antes do
-primeiro deploy da aplicação:
-
-```bash
-cd /opt/guia-lagamar
-docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d caddy mysql
+```text
+guia-lagamar-mysql-data
+guia-lagamar-uploads
+guia-lagamar-caddy-data
+guia-lagamar-caddy-config
 ```
 
-O MySQL cria `DB_DATABASE` e `DB_USERNAME` a partir do `.env` somente quando o
-volume `guia-lagamar-mysql-data` está vazio. Os deploys seguintes não recriam
-Caddy ou MySQL.
+A stack também usa `guia-lagamar-app-code`, um volume de runtime preenchido a
+partir da imagem PHP-FPM. Ele permite que Nginx e PHP-FPM enxerguem a mesma
+árvore `/var/www/html` sem bind mount do código-fonte da Droplet. Esse volume
+não contém banco nem uploads.
 
-Para restaurar o dump existente **em uma instalação nova, antes do primeiro
-deploy da aplicação**, inicie somente o banco após as pastas de infraestrutura
-terem sido enviadas:
-
-```bash
-cd /opt/guia-lagamar
-docker compose --env-file .env -f deploy/docker-compose.prod.yml up -d mysql
-docker inspect --format '{{.State.Health.Status}}' guia-lagamar-mysql
-gzip -dc /opt/backups/backup-cc90e88d6526227234430ac4339c2d15.sql.gz \
-  | docker exec -i guia-lagamar-mysql sh -c 'exec mysql -uroot -p"$DB_ROOT_PASSWORD"'
-```
-
-Espere o status `healthy` antes da restauração. O dump deve ser aplicado uma
-única vez; restaurá-lo sobre um banco já utilizado pode sobrescrever dados. Se
-o arquivo não contiver `CREATE DATABASE`/`USE guialagamar`, acrescente o nome
-do banco ao final do comando `mysql`.
-
-Para gerar backup consistente:
-
-```bash
-mkdir -p /opt/backups
-docker exec guia-lagamar-mysql sh -c \
-  'exec mysqldump -uroot -p"$DB_ROOT_PASSWORD" --single-transaction --routines --triggers "$DB_DATABASE"' \
-  | gzip > /opt/backups/guialagamar-$(date +%F-%H%M%S).sql.gz
-```
-
-Em rollback de aplicação, o banco e o volume MySQL não são reiniciados nem
-restaurados: apenas a imagem Laravel volta para um SHA anterior. Migrations
-não sofrem rollback automático; mantenha migrations compatíveis entre versões
-ou restaure um backup do banco somente por procedimento operacional separado.
+Nunca use `docker compose down -v` em produção.
 
 ## Deploy
 
-O push em `main` publica `ghcr.io/agnaldojaws/guia-lagamar:<SHA>` e chama o
-script remoto. Ele faz pull da imagem, executa `php artisan migrate --force`
-em um container temporário e executa `docker compose up -d app`. Caddy e MySQL
-não são recriados ou recarregados.
+O push em `main`:
 
-Para voltar manualmente a uma imagem SHA já publicada, execute o mesmo deploy:
+1. executa checkout, dependências, testes e build frontend;
+2. constrói a imagem PHP 8.3-FPM;
+3. publica `ghcr.io/agnaldojaws/guia-lagamar:<SHA>`;
+4. remove e recopia somente `/opt/guia-lagamar/deploy` e
+   `/opt/guia-lagamar/docker`;
+5. executa `deploy/deploy.sh <imagem>` via SSH.
+
+O script remoto faz `pull`, garante MySQL/app, executa migrations e caches,
+sobe Nginx/Caddy e valida:
+
+```text
+http://nginx/up
+https://passaronegro.com.br/up
+https://passaronegro.com.br/admin/login
+assets CSS/JS do Filament
+ausência de URLs http://passaronegro.com.br no login
+```
+
+Rollback manual para uma imagem já publicada:
 
 ```bash
 cd /opt/guia-lagamar
 IMAGE_REPOSITORY=ghcr.io/agnaldojaws/guia-lagamar ./deploy/deploy.sh <SHA-anterior>
 ```
 
-Esse procedimento não desfaz migrations; mantenha migrations compatíveis com
-as versões anteriores quando precisar voltar uma imagem.
+Rollback de imagem não desfaz migrations. Faça backup do banco antes de
+migrations arriscadas.
+
+## Primeira migração Apache -> FPM + Nginx
+
+Após um deploy saudável da nova stack, remova manualmente containers órfãos
+antigos, como `guia-lagamar-app-blue`. Não remova volumes persistentes.
+
+Para inspecionar a stack:
+
+```bash
+cd /opt/guia-lagamar
+APP_IMAGE=ghcr.io/agnaldojaws/guia-lagamar:<SHA> docker compose --env-file .env -f deploy/docker-compose.prod.yml config
+APP_IMAGE=ghcr.io/agnaldojaws/guia-lagamar:<SHA> docker compose --env-file .env -f deploy/docker-compose.prod.yml ps
+```

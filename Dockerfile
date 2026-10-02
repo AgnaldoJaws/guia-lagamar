@@ -1,8 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM php:8.3-apache-bookworm AS php-base
-
-ENV APACHE_DOCUMENT_ROOT=/var/www/html/public
+FROM php:8.3-fpm-bookworm AS php-base
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -10,15 +8,19 @@ RUN apt-get update \
         libfreetype6-dev \
         libicu-dev \
         libjpeg62-turbo-dev \
-        libonig-dev \
         libpng-dev \
         libpq-dev \
         libzip-dev \
+        rsync \
         unzip \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install -j"$(nproc)" bcmath gd intl mbstring opcache pdo_mysql pdo_pgsql zip \
-    && a2enmod rewrite \
-    && sed -ri 's!/var/www/html!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/sites-available/*.conf /etc/apache2/apache2.conf /etc/apache2/conf-available/*.conf \
+    && docker-php-ext-install -j"$(nproc)" \
+        bcmath \
+        gd \
+        intl \
+        pdo_mysql \
+        pdo_pgsql \
+        zip \
     && rm -rf /var/lib/apt/lists/*
 
 # Composer runs on the same PHP 8.3 image and extension set as production.
@@ -50,7 +52,7 @@ ENV APP_ENV=production \
     APP_DEBUG=false \
     LOG_CHANNEL=stderr
 
-WORKDIR /var/www/html
+WORKDIR /opt/laravel
 COPY --chown=www-data:www-data . .
 COPY --from=vendor --chown=www-data:www-data /app/vendor ./vendor
 COPY --from=frontend --chown=www-data:www-data /app/public/build ./public/build
@@ -61,8 +63,8 @@ RUN chmod 0755 /usr/local/bin/laravel-entrypoint \
     && chown -R www-data:www-data storage bootstrap/cache
 
 HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=6 \
-    CMD curl --fail --silent --show-error http://127.0.0.1/up || exit 1
+    CMD php-fpm -t && php artisan about --only=environment >/dev/null || exit 1
 
-EXPOSE 80
+EXPOSE 9000
 ENTRYPOINT ["laravel-entrypoint"]
-CMD ["apache2-foreground"]
+CMD ["php-fpm"]
