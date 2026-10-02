@@ -60,7 +60,7 @@ compose exec -T app php artisan route:cache
 compose exec -T app php artisan view:cache
 
 echo "Updating Nginx and Caddy..."
-compose up -d nginx caddy
+compose up -d --force-recreate nginx caddy
 
 echo "Validating internal health through Nginx..."
 for i in $(seq 1 60); do
