@@ -70,10 +70,29 @@ jobs:
         with:
           context: .
           push: true
+          pull: true
           tags: |
             ${{ env.IMAGE_NAME }}:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Verify PHP security patch level in published image
+        env:
+          IMAGE: ${{ env.IMAGE_NAME }}:${{ github.sha }}
+          MIN_PHP_VERSION: '8.3.36'
+        run: |
+          set -euo pipefail
+          # Pull the exact image published to GHCR (buildx push does not load it
+          # into the local daemon) and read the PHP version it actually ships.
+          docker pull "$IMAGE"
+          php_version="$(docker run --rm --entrypoint php "$IMAGE" -r 'echo PHP_VERSION;')"
+          echo "Published image PHP version: ${php_version} (minimum required: ${MIN_PHP_VERSION})"
+          lowest="$(printf '%s\n%s\n' "$MIN_PHP_VERSION" "$php_version" | sort -V | head -n1)"
+          if [ "$lowest" != "$MIN_PHP_VERSION" ]; then
+            echo "::error::PHP ${php_version} is older than the required ${MIN_PHP_VERSION}. Blocking deploy." >&2
+            exit 1
+          fi
+          echo "PHP ${php_version} satisfies the minimum security patch level."
 
       - name: Prepare remote infrastructure directory
         uses: appleboy/ssh-action@v1.2.0
